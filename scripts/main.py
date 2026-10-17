@@ -1,13 +1,17 @@
-# scripts/main.py
-import asyncio, logging, os, re
+# scripts/main.py  (v1.2.0)
+import asyncio, html, logging, os, re
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
+
+__version__ = "1.2.0"
 
 # 讓 analyzer.py 的 log.info 也會顯示在 GitHub Actions 日誌
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 from fetcher  import fetch_all
+import analyzer as _an
 from analyzer import build_script
 from tts      import to_mp3
 from r2       import upload_file, upload_text
@@ -25,18 +29,24 @@ import publish as _pub
 _pub.FEED_PATH  = str(FEED_PATH)
 _pub.QUEUE_PATH = str(QUEUE_PATH)
 
-
+_GUID_RE  = re.compile(r"<guid[^>]*>(.*?)</guid>", re.S)
 _BARE_AMP = re.compile(r"&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9a-fA-F]+;)")
+
+
+def already_published(url: str) -> bool:
+    """feed.xml 是否已有這個 guid（guid 就是 mp3 網址）。"""
+    if not FEED_PATH.exists():
+        return False
+    xml = FEED_PATH.read_text(encoding="utf-8")
+    return any(html.unescape(g.strip()) == url for g in _GUID_RE.findall(xml))
 
 
 def dedupe_feed(path: Path) -> tuple[int, int]:
     """
-    清理 feed.xml，回傳 (移除的重複集數, 修正的 & 數量)：
-    1. 依 <guid> 去除重複的 <item>。feed 是新的在上面，
-       每個 guid 保留第一次出現（也就是最新）的那筆。
-    2. 把未跳脫的 & 改成 &amp;（例如描述裡的 AT&T 會讓整份 RSS 變成非法 XML，
-       播客平台會直接拒絕解析）。
-    3. 最後用 XML 解析器驗證；仍然不合法就丟出例外，避免把壞掉的 feed 上傳到 R2。
+    最後一道保險，回傳 (移除的重複集數, 修正的 & 數量)：
+    1. 依 <guid> 去除重複的 <item>（保留第一次出現 = 最新那筆）。
+    2. 把未跳脫的 & 改成 &amp;（舊集數裡的 AT&T 會讓整份 RSS 變成非法 XML）。
+    3. 用 XML 解析器驗證；仍不合法就丟例外，避免把壞掉的 feed 上傳到 R2。
     """
     xml = path.read_text(encoding="utf-8")
     seen: set[str] = set()
@@ -44,10 +54,10 @@ def dedupe_feed(path: Path) -> tuple[int, int]:
 
     def _keep_first(m: re.Match) -> str:
         nonlocal removed
-        g = re.search(r"<guid[^>]*>(.*?)</guid>", m.group(0), re.S)
+        g = _GUID_RE.search(m.group(0))
         if not g:
             return m.group(0)
-        guid = g.group(1).strip()
+        guid = html.unescape(g.group(1).strip())
         if guid in seen:
             removed += 1
             return ""
@@ -56,8 +66,6 @@ def dedupe_feed(path: Path) -> tuple[int, int]:
 
     new_xml = re.sub(r"<item>.*?</item>", _keep_first, xml, flags=re.S)
     new_xml, fixed_amp = _BARE_AMP.subn("&amp;", new_xml)
-
-    import xml.etree.ElementTree as ET
     ET.fromstring(new_xml.encode("utf-8"))   # 不合法會在這裡丟 ParseError
 
     if new_xml != xml:
@@ -66,12 +74,27 @@ def dedupe_feed(path: Path) -> tuple[int, int]:
 
 
 async def main():
-    # 日期
+    print(f"版本：main {__version__} | analyzer {getattr(_an, '__version__', '?')} "
+          f"| publish {getattr(_pub, '__version__', '?')}")
+
+    # 日期（UTC）
     now      = datetime.now(timezone.utc)
     date_str = now.strftime("%Y%m%d")
     disp     = now.strftime("%Y年%-m月%-d日")
+    base_url = os.environ["R2_PUBLIC_URL"].rstrip("/")
+    mp3_key  = f"ep_{date_str}.mp3"
+    episode_url = f"{base_url}/{mp3_key}"
 
     print(f"=== {disp} 晨報開始 ===")
+
+    # ⓪ 防重複：今天的集數已經在 feed 裡就不再重做
+    #    手動按 Run workflow（workflow_dispatch）或設 FORCE_REBUILD=1 才會強制重做並原地更新
+    force = (os.environ.get("FORCE_REBUILD") == "1"
+             or os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch")
+    if already_published(episode_url) and not force:
+        print(f"⏭️  今天（{disp}）的集數已在 feed.xml，跳過。"
+              "（要重做：手動 Run workflow，或設定 FORCE_REBUILD=1）")
+        return
 
     # ① 抓取 RSS
     print("① 抓取中...")
@@ -90,14 +113,12 @@ async def main():
 
     # ④ 上傳 MP3 到 R2
     print("④ 上傳 R2...")
-    mp3_key  = f"ep_{date_str}.mp3"
-    base_url = os.environ["R2_PUBLIC_URL"].rstrip("/")
     upload_file(mp3_path, mp3_key, "audio/mpeg")
 
     # ⑤ 組成 episode dict（符合 publish.py 的格式）
     episode = {
         "title":        f"{disp} 美股科技晨報",
-        "url":          f"{base_url}/{mp3_key}",
+        "url":          episode_url,
         "size":         Path(mp3_path).stat().st_size,
         "content_type": "audio/mpeg",
         "pubDate":      format_datetime(now),
@@ -105,11 +126,12 @@ async def main():
         "guid":         f"ep_{date_str}",
     }
 
-    # ⑥ 寫入本地 feed.xml（複用原有 publish.py 邏輯）
+    # ⑥ 寫入本地 feed.xml（publish.py v1.2.0：同 guid 取代，不重複追加）
     print("⑤ 更新 feed.xml...")
-    update_rss_feed(episode)
+    if not update_rss_feed(episode):
+        raise RuntimeError("update_rss_feed 失敗，中止（不上傳 R2 的 feed.xml）")
 
-    # ⑥-b 去除重複 guid、修正未跳脫的 &、驗證 XML 合法
+    # ⑥-b 保險：去重、修正舊集數的 &、驗證 XML 合法
     removed, fixed_amp = dedupe_feed(FEED_PATH)
     if removed:
         print(f"   已移除 {removed} 筆重複 guid 的集數")
