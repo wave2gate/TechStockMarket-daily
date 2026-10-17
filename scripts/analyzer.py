@@ -1,17 +1,22 @@
 """
-AI 播報稿生成
-模型鏈：Gemini（動態查詢可用模型）→ Groq → DeepSeek
+AI 播報稿生成（v1.2.0）
 
-重點修正：
-1. Gemini 不再寫死模型名稱，先呼叫 models.list 取得這把 key 實際可用的 flash 模型
-2. 單一模型逾時 / 429 / 5xx 只會重試或換下一個模型，不會直接中斷整個 Gemini
-3. Gemini 金鑰改放 header（x-goog-api-key），錯誤訊息不會再把 ?key=... 印進公開日誌
-4. Groq 預設模型改為 llama-3.3-70b-versatile（llama3-70b-8192 已下架），
-   並可用環境變數 GROQ_MODEL 覆蓋
-5. 所有提供商失敗時，會把 HTTP 狀態碼與回應內文印出來，方便診斷
+預設順序：Gemini → Groq → OpenRouter(:free) → DeepSeek
+  - 前三個是免費額度；DeepSeek 是付費（按量計費，一集約幾分之一美分），放最後當最終防線
+  - 用環境變數 PROVIDER_ORDER 調整順序，例如 "gemini,groq,deepseek,openrouter"
+  - 沒有設定對應 API Key 的提供商會自動跳過（並在日誌顯示）
+
+GitHub Secrets（有設才會啟用）：
+  GEMINI_API_KEY / GROQ_API_KEY / OPENROUTER_API_KEY / DEEPSEEK_API_KEY
+可選：用環境變數 GROQ_MODEL / OPENROUTER_MODEL / DEEPSEEK_MODEL 指定優先使用的模型
+
+設計原則：模型名稱常被下架，所以不寫死，執行時先向各家 API 查詢「這把 key 現在
+實際可用的模型」，再依偏好順序嘗試；查不到才退回內建名單。
 """
 import logging, os, re, time
 import requests
+
+__version__ = "1.2.0"
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +34,15 @@ SYSTEM = """你是一位專業的台灣財經播客主持人，聲音沉穩、�
 5. 最後祝福：「祝各位身體健康、投資順利，闔家平安，神愛世人，耶穌愛您，我們明天見！」
 6. 全程繁體中文口語，不用 Markdown 符號，不用括號，字數 1200–1800 字"""
 
-MIN_SCRIPT_CHARS = 300  # 低於這個長度視為失敗（避免被截斷或空回應）
+MIN_SCRIPT_CHARS = 300          # 低於這個長度視為失敗（被截斷或空回應）
+_RETRY_STATUS = (429, 500, 502, 503, 504)   # 暫時性錯誤：同模型重試一次
+_FATAL_STATUS = (401, 402, 403)             # 金鑰 / 餘額問題：換模型也沒用，直接放棄該提供商
+
+
+class ApiError(Exception):
+    def __init__(self, status: int, body: str, model: str = ""):
+        self.status, self.body, self.model = status, body or "", model
+        super().__init__(f"HTTP {status} model={model}: {self.body[:400]}")
 
 
 def _build_prompt(items: list[dict], date: str) -> str:
@@ -48,53 +61,138 @@ def _build_prompt(items: list[dict], date: str) -> str:
     return system + "\n\n" + "\n".join(lines)
 
 
-# ── Gemini ─────────────────────────────────────────────────────────────
-GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
+# ── 共用：依序嘗試候選模型 ─────────────────────────────────────────────
+def _run_candidates(name: str, candidates: list[str], call) -> str:
+    """call(model) -> 文字；失敗時丟 ApiError 或 requests 例外。"""
+    errors: list[str] = []
+    for model in candidates:
+        for attempt in (1, 2):
+            try:
+                text = call(model)
+            except ApiError as e:
+                errors.append(f"{model}: HTTP {e.status}")
+                log.warning(f"   {name} {model}: HTTP {e.status} {e.body[:200]}")
+                if e.status in _FATAL_STATUS:
+                    raise RuntimeError(
+                        f"{name} 認證或餘額問題 (HTTP {e.status})：{e.body[:200]}")
+                if e.status in _RETRY_STATUS and attempt == 1:
+                    time.sleep(6)
+                    continue
+                break
+            except requests.RequestException as e:
+                errors.append(f"{model}: {type(e).__name__}")
+                log.warning(f"   {name} {model}: {type(e).__name__}（第 {attempt} 次）")
+                if attempt == 1:
+                    time.sleep(3)
+                    continue
+                break
+            if text:
+                log.info(f"   ✓ {name} 使用模型: {model}")
+                return text
+            errors.append(f"{model}: empty")
+            log.warning(f"   {name} {model}: 回應內容為空（可能被截斷或被安全機制擋下）")
+            break
+    raise RuntimeError(f"{name} 全部候選模型失敗: {errors}")
 
-# models.list 失敗時的備用名單（alias 會自動指向目前的最新版）
-GEMINI_FALLBACK_MODELS = [
+
+def _pick(avail: list[str], preferred: list[str], override: str | None,
+          name: str, heuristic=None) -> list[str]:
+    """avail=API 回報的可用模型；依偏好名單挑出候選。avail 為空代表查詢失敗，用內建名單盲試。"""
+    cands: list[str] = []
+    if override:
+        cands.append(override)
+    if avail:
+        matched = [m for m in preferred if m in avail]
+        if not matched and heuristic:
+            matched = [m for m in avail if heuristic(m)][:3]
+        if not matched:
+            log.warning(f"   {name}: 可用模型中找不到預設名單。API 回報的模型: {avail[:25]}")
+        cands += matched
+    else:
+        cands += preferred
+    out: list[str] = []
+    for m in cands:
+        if m and m not in out:
+            out.append(m)
+    return out or list(preferred)
+
+
+def _list_models(base_url: str, key: str) -> list[str]:
+    try:
+        r = requests.get(f"{base_url}/models",
+                         headers={"Authorization": f"Bearer {key}"}, timeout=20)
+        r.raise_for_status()
+        return [m.get("id", "") for m in r.json().get("data", []) if m.get("id")]
+    except Exception as e:
+        log.warning(f"   取得 {base_url} 模型清單失敗（{type(e).__name__}），改用內建名單")
+        return []
+
+
+def _chat_call(base_url: str, key: str, model: str, prompt: str, max_tokens: int,
+               extra: dict | None = None, headers: dict | None = None) -> str:
+    """OpenAI 相容格式（Groq / OpenRouter / DeepSeek 共用）。"""
+    def post(payload):
+        h = {"Authorization": f"Bearer {key}"}
+        h.update(headers or {})
+        return requests.post(f"{base_url}/chat/completions",
+                             headers=h, json=payload, timeout=120)
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.4,
+        "max_tokens": max_tokens,
+    }
+    if extra:
+        payload.update(extra)
+    r = post(payload)
+    if r.status_code == 400 and extra:
+        # 額外參數（如 reasoning_effort）若不被接受，去掉再試一次
+        for k in extra:
+            payload.pop(k, None)
+        log.warning(f"   {model}: 400，去掉額外參數 {list(extra)} 重試")
+        r = post(payload)
+    if not r.ok:
+        raise ApiError(r.status_code, r.text, model)
+
+    msg = ((r.json().get("choices") or [{}])[0].get("message")) or {}
+    text = msg.get("content") or ""
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+
+
+# ── 1. Gemini（免費）──────────────────────────────────────────────────
+GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
+GEMINI_FALLBACK_MODELS = [          # models.list 失敗時才用
     "gemini-flash-latest",
     "gemini-flash-lite-latest",
     "gemini-3.1-flash-lite",
 ]
-
-# 這些名稱的模型不是用來生成文字稿的
-_SKIP_WORDS = ("tts", "image", "live", "audio", "embed", "robotics",
-               "computer", "imagen", "veo", "gemma", "aqa")
-
-MAX_GEMINI_CANDIDATES = 4
+_GEMINI_SKIP = ("tts", "image", "live", "audio", "embed", "robotics",
+                "computer", "imagen", "veo", "gemma", "aqa")
 
 
 def _gemini_candidates(key: str) -> list[str]:
-    """向 API 查詢這把 key 目前可用、支援 generateContent 的 flash 模型。"""
     found: list[str] = []
     try:
-        r = requests.get(
-            f"{GEMINI_BASE}/models",
-            headers={"x-goog-api-key": key},
-            params={"pageSize": 200},
-            timeout=20,
-        )
+        r = requests.get(f"{GEMINI_BASE}/models", headers={"x-goog-api-key": key},
+                         params={"pageSize": 200}, timeout=20)
         r.raise_for_status()
         for m in r.json().get("models", []):
             name = m.get("name", "").removeprefix("models/")
             if "generateContent" not in m.get("supportedGenerationMethods", []):
                 continue
-            if "flash" not in name or any(w in name for w in _SKIP_WORDS):
+            if "flash" not in name or any(w in name for w in _GEMINI_SKIP):
                 continue
             found.append(name)
     except Exception as e:
-        log.warning(f"   Gemini models.list 失敗: {type(e).__name__}，改用備用名單")
-
-    # 穩定版優先於 preview/exp，其餘依名稱由新到舊
+        log.warning(f"   Gemini models.list 失敗（{type(e).__name__}），改用備用名單")
     found.sort(reverse=True)
-    found.sort(key=lambda n: ("preview" in n) or ("exp" in n))
-
+    found.sort(key=lambda n: ("preview" in n) or ("exp" in n))   # 穩定版優先
     ordered: list[str] = []
     for n in found + GEMINI_FALLBACK_MODELS:
         if n not in ordered:
             ordered.append(n)
-    ordered = ordered[:MAX_GEMINI_CANDIDATES]
+    ordered = ordered[:4]
     log.info(f"   Gemini 候選模型: {ordered}")
     return ordered
 
@@ -111,137 +209,17 @@ def _gemini(prompt: str) -> str:
     key = os.environ.get("GEMINI_API_KEY", "")
     if not key:
         raise ValueError("GEMINI_API_KEY 未設定")
-
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": 0.4,
-            # 思考型模型的 thinking tokens 也會算進去，留足空間避免被截斷
-            "maxOutputTokens": 8192,
-        },
+        # 金鑰放 header：錯誤訊息不會把 ?key=... 印到公開日誌
+        "generationConfig": {"temperature": 0.4, "maxOutputTokens": 8192},
     }
-    errors: list[str] = []
 
-    for model in _gemini_candidates(key):
-        for attempt in (1, 2):
-            try:
-                r = requests.post(
-                    f"{GEMINI_BASE}/models/{model}:generateContent",
-                    headers={"x-goog-api-key": key},
-                    json=body,
-                    timeout=120,
-                )
-            except requests.RequestException as e:
-                msg = f"{type(e).__name__}"
-                log.warning(f"   Gemini {model} 連線錯誤（第 {attempt} 次）: {msg}")
-                errors.append(f"{model}: {msg}")
-                if attempt == 1:
-                    time.sleep(3)
-                    continue
-                break
+    def call(model: str) -> str:
+        r = requests.post(f"{GEMINI_BASE}/models/{model}:generateContent",
+                          headers={"x-goog-api-key": key}, json=body, timeout=120)
+        if not r.ok:
+            raise ApiError(r.status_code, r.text, model)
+        return _gemini_extract(r.json())
 
-            if r.status_code == 404:
-                log.warning(f"   Gemini {model}: 404（此 key 不可用），換下一個")
-                errors.append(f"{model}: 404")
-                break
-
-            if r.status_code in (429, 500, 502, 503, 504):
-                log.warning(f"   Gemini {model}: HTTP {r.status_code}（第 {attempt} 次）")
-                errors.append(f"{model}: HTTP {r.status_code}")
-                if attempt == 1:
-                    time.sleep(6)
-                    continue
-                break
-
-            if not r.ok:
-                log.warning(f"   Gemini {model}: HTTP {r.status_code} {r.text[:300]}")
-                errors.append(f"{model}: HTTP {r.status_code}")
-                break
-
-            text = _gemini_extract(r.json())
-            if text:
-                log.info(f"   ✓ Gemini 使用模型: {model}")
-                return text
-            log.warning(f"   Gemini {model}: 回應內容為空（可能被安全機制擋下或被截斷）")
-            errors.append(f"{model}: empty")
-            break
-
-    raise RuntimeError(f"Gemini 全部候選模型失敗: {errors}")
-
-
-# ── OpenAI 相容格式（Groq / DeepSeek 共用）─────────────────────────────
-def _openai_style(url: str, key: str, model: str, prompt: str) -> str:
-    r = requests.post(
-        url,
-        headers={"Authorization": f"Bearer {key}"},
-        json={
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.4,
-            "max_tokens": 3000,
-        },
-        timeout=120,
-    )
-    if not r.ok:
-        # 把回應內文帶出來，400 的真正原因都寫在這裡
-        raise RuntimeError(f"HTTP {r.status_code} model={model}: {r.text[:500]}")
-    return r.json()["choices"][0]["message"]["content"]
-
-
-def _groq(prompt: str) -> str:
-    key = os.environ.get("GROQ_API_KEY", "")
-    if not key:
-        raise ValueError("GROQ_API_KEY 未設定")
-    model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-    return _openai_style("https://api.groq.com/openai/v1/chat/completions",
-                         key, model, prompt)
-
-
-def _deepseek(prompt: str) -> str:
-    key = os.environ.get("DEEPSEEK_API_KEY", "")
-    if not key:
-        raise ValueError("DEEPSEEK_API_KEY 未設定")
-    return _openai_style("https://api.deepseek.com/chat/completions",
-                         key, "deepseek-chat", prompt)
-
-
-# ── 主入口：自動降級鏈 ─────────────────────────────────────────────────
-PROVIDERS = [
-    ("Gemini",   _gemini,   "GEMINI_API_KEY"),
-    ("Groq",     _groq,     "GROQ_API_KEY"),
-    ("DeepSeek", _deepseek, "DEEPSEEK_API_KEY"),
-]
-
-
-def build_script(items: list[dict], date: str) -> str:
-    if not items:
-        log.warning("   無新聞素材，生成預設播報稿")
-        return (
-            f"各位聽眾朋友好，歡迎收聽美股科技晨報，今天是{date}。"
-            "由於今日數據抓取異常，暫無詳細新聞播報，請稍後查看文字版。"
-            "祝各位身體健康，闔家平安，神愛世人，耶穌愛您，我們明天見！"
-        )
-
-    prompt = _build_prompt(items, date)
-    tried: list[str] = []
-
-    for name, fn, env_key in PROVIDERS:
-        if not os.environ.get(env_key):
-            log.warning(f"   {name}: 未設定 {env_key}，跳過")
-            continue
-        tried.append(name)
-        try:
-            log.info(f"   嘗試 {name}...")
-            text = fn(prompt)
-            # 清理殘留 Markdown 符號
-            text = re.sub(r"\*{1,2}(.+?)\*{1,2}", r"\1", text)
-            text = re.sub(r"#{1,4}\s*", "", text)
-            if len(text) < MIN_SCRIPT_CHARS:
-                raise RuntimeError(f"回傳內容過短（{len(text)} 字），視為失敗")
-            log.info(f"   ✓ {name} 完成，{len(text)} 字")
-            return text
-        except Exception as ex:
-            log.warning(f"   {name} 失敗: {ex}")
-            time.sleep(2)
-
-    raise RuntimeError(f"所有 AI 提供商均失敗（已嘗試: {tried or '無，請檢查 API Key 設定'}）")
+    
