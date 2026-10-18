@@ -222,4 +222,158 @@ def _gemini(prompt: str) -> str:
             raise ApiError(r.status_code, r.text, model)
         return _gemini_extract(r.json())
 
-    
+    return _run_candidates("Gemini", _gemini_candidates(key), call)
+
+
+# ── 2. Groq（免費）────────────────────────────────────────────────────
+# 官方停用頁：llama3-70b-8192 已於 2025-08 關閉；llama-3.3-70b-versatile 於 2026-08-16 關閉。
+# 因此偏好 gpt-oss 系列；實際用哪個以執行時 /models 回報為準。
+GROQ_BASE = "https://api.groq.com/openai/v1"
+GROQ_PREFERRED = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
+
+
+def _groq(prompt: str) -> str:
+    key = os.environ.get("GROQ_API_KEY", "")
+    if not key:
+        raise ValueError("GROQ_API_KEY 未設定")
+    cands = _pick(_list_models(GROQ_BASE, key), GROQ_PREFERRED,
+                  os.environ.get("GROQ_MODEL"), "Groq")
+    log.info(f"   Groq 候選模型: {cands}")
+
+    def call(model: str) -> str:
+        extra = {"reasoning_effort": "low"} if "gpt-oss" in model else None
+        # max_tokens 不宜過大：Groq 免費層的每分鐘 token 上限會把它算進去
+        return _chat_call(GROQ_BASE, key, model, prompt, 3500, extra)
+
+    return _run_candidates("Groq", cands, call)
+
+
+# ── 3. OpenRouter（免費 :free 模型，第四個備援）────────────────────────
+# 官方限制：未儲值帳號 20 次/分、50 次/天；每天只跑一次綽綽有餘。
+# :free 模型清單常變動，所以每次向公開的 /models 查詢現在有哪些。
+OPENROUTER_BASE = "https://openrouter.ai/api/v1"
+_OR_PREFER = ("gpt-oss-120b", "llama-3.3-70b", "qwen3", "deepseek", "gemma-3", "mistral")
+_OR_FALLBACK = ["openai/gpt-oss-120b:free", "meta-llama/llama-3.3-70b-instruct:free"]
+
+
+def _openrouter_candidates() -> list[str]:
+    free: list[str] = []
+    try:
+        r = requests.get(f"{OPENROUTER_BASE}/models", timeout=20)
+        r.raise_for_status()
+        for m in r.json().get("data", []):
+            mid = m.get("id", "")
+            if not mid.endswith(":free"):
+                continue
+            out = (m.get("architecture") or {}).get("output_modalities") or ["text"]
+            if "text" not in out or (m.get("context_length") or 0) < 16000:
+                continue
+            free.append(mid)
+    except Exception as e:
+        log.warning(f"   OpenRouter 模型清單失敗（{type(e).__name__}），改用內建名單")
+
+    def rank(mid: str) -> int:
+        for i, k in enumerate(_OR_PREFER):
+            if k in mid:
+                return i
+        return len(_OR_PREFER)
+
+    free.sort(key=lambda x: (rank(x), x))
+    cands: list[str] = []
+    for m in [os.environ.get("OPENROUTER_MODEL", "")] + free + _OR_FALLBACK:
+        if m and m not in cands:
+            cands.append(m)
+    cands = cands[:4]
+    log.info(f"   OpenRouter 候選模型: {cands}")
+    return cands
+
+
+def _openrouter(prompt: str) -> str:
+    key = os.environ.get("OPENROUTER_API_KEY", "")
+    if not key:
+        raise ValueError("OPENROUTER_API_KEY 未設定")
+    headers = {"X-Title": "TechStockMarket-daily"}
+    return _run_candidates(
+        "OpenRouter", _openrouter_candidates(),
+        lambda m: _chat_call(OPENROUTER_BASE, key, m, prompt, 4000, None, headers))
+
+
+# ── 4. DeepSeek（付費，按量計費；最後防線）─────────────────────────────
+# 網路資料顯示舊名 deepseek-chat 已規劃退役（改指向 V4），所以同樣以 /models 回報為準。
+DEEPSEEK_BASE = "https://api.deepseek.com"
+DEEPSEEK_PREFERRED = ["deepseek-v4-flash", "deepseek-chat"]
+
+
+def _deepseek(prompt: str) -> str:
+    key = os.environ.get("DEEPSEEK_API_KEY", "")
+    if not key:
+        raise ValueError("DEEPSEEK_API_KEY 未設定")
+    heuristic = lambda m: m.startswith("deepseek") and not any(
+        w in m for w in ("reason", "r1", "coder", "pro"))
+    cands = _pick(_list_models(DEEPSEEK_BASE, key), DEEPSEEK_PREFERRED,
+                  os.environ.get("DEEPSEEK_MODEL"), "DeepSeek", heuristic)
+    log.info(f"   DeepSeek 候選模型: {cands}")
+    return _run_candidates(
+        "DeepSeek", cands,
+        lambda m: _chat_call(DEEPSEEK_BASE, key, m, prompt, 4000))
+
+
+# ── 主入口：依序降級 ───────────────────────────────────────────────────
+_REGISTRY = {
+    "gemini":     ("Gemini",     _gemini,     "GEMINI_API_KEY"),
+    "groq":       ("Groq",       _groq,       "GROQ_API_KEY"),
+    "openrouter": ("OpenRouter", _openrouter, "OPENROUTER_API_KEY"),
+    "deepseek":   ("DeepSeek",   _deepseek,   "DEEPSEEK_API_KEY"),
+}
+DEFAULT_ORDER = "gemini,groq,openrouter,deepseek"
+
+
+def _providers() -> list[tuple]:
+    order = [x.strip().lower()
+             for x in os.environ.get("PROVIDER_ORDER", DEFAULT_ORDER).split(",")
+             if x.strip()]
+    out = []
+    for key in order:
+        if key in _REGISTRY:
+            out.append(_REGISTRY[key])
+        else:
+            log.warning(f"   PROVIDER_ORDER 含未知名稱 {key!r}，已忽略")
+    return out
+
+
+def build_script(items: list[dict], date: str) -> str:
+    if not items:
+        log.warning("   無新聞素材，生成預設播報稿")
+        return (
+            f"各位聽眾朋友好，歡迎收聽美股科技晨報，今天是{date}。"
+            "由於今日數據抓取異常，暫無詳細新聞播報，請稍後查看文字版。"
+            "祝各位身體健康，闔家平安，神愛世人，耶穌愛您，我們明天見！"
+        )
+
+    prompt = _build_prompt(items, date)
+    providers = _providers()
+    have = [n for n, _, k in providers if os.environ.get(k)]
+    log.info(f"   提供商順序: {[n for n, _, _ in providers]}；已設定 Key: {have}")
+    tried: list[str] = []
+
+    for name, fn, env_key in providers:
+        if not os.environ.get(env_key):
+            log.warning(f"   {name}: 未設定 {env_key}，跳過")
+            continue
+        tried.append(name)
+        try:
+            log.info(f"   嘗試 {name}...")
+            text = fn(prompt)
+            # 清理殘留 Markdown 符號
+            text = re.sub(r"\*{1,2}(.+?)\*{1,2}", r"\1", text)
+            text = re.sub(r"#{1,4}\s*", "", text)
+            if len(text) < MIN_SCRIPT_CHARS:
+                raise RuntimeError(f"回傳內容過短（{len(text)} 字），視為失敗")
+            log.info(f"   ✓ {name} 完成，{len(text)} 字")
+            return text
+        except Exception as ex:
+            log.warning(f"   {name} 失敗: {ex}")
+            time.sleep(2)
+
+    raise RuntimeError(
+        f"所有 AI 提供商均失敗（已嘗試: {tried or '無，請檢查 API Key 設定'}）")
