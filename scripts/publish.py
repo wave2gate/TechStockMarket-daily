@@ -1,8 +1,13 @@
 """
-publish.py (v1.2.0)
+publish.py (v1.2.1)
 把集數寫入 feed.xml。
 
-v1.2.0 重點：
+v1.2.1：
+- 若 episode 帶有 description_html，額外寫入 <content:encoded>（HTML 版說明，含可點連結）；
+  <description> 仍是純文字版。兩者內容一致，用來觀察各平台實際讀哪一個。
+- feed 缺少 xmlns:content 命名空間時自動補上。
+
+v1.2.0：
 - upsert：同一個 guid 已存在就「取代」，不再重複追加（這是重複 guid 的根源）
 - 標題 / 描述 / 網址一律做 XML 跳脫（AT&T 之類的 & 不會再讓整份 RSS 失效）
 - 不再每次多塞一堆空白行
@@ -12,7 +17,7 @@ import os
 import re
 from xml.sax.saxutils import escape, quoteattr, unescape
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 
 QUEUE_PATH = "episodes_queue.json"
 FEED_PATH = "feed.xml"
@@ -20,6 +25,7 @@ FEED_PATH = "feed.xml"
 _ITEM_RE = re.compile(r"<item>.*?</item>", re.S)
 _GUID_RE = re.compile(r"<guid[^>]*>(.*?)</guid>", re.S)
 _CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")  # XML 1.0 不允許的控制字元
+_CONTENT_NS = "http://purl.org/rss/1.0/modules/content/"
 
 
 def load_queue():
@@ -38,14 +44,24 @@ def _clean(text: str) -> str:
     return _CTRL_RE.sub("", text or "")
 
 
+def _cdata(text: str) -> str:
+    """CDATA 區塊；內文若剛好含 ]]> 會被拆開，避免提早結束。"""
+    return "<![CDATA[" + _clean(text).replace("]]>", "]]&gt;") + "]]>"
+
+
 def _build_item(episode) -> str:
     title = escape(_clean(episode["title"]))
     desc = escape(_clean(episode.get("description") or ("本集講解：" + episode["title"])))
     url = episode["url"]
+    html_desc = episode.get("description_html")
+    content_encoded = (
+        f"      <content:encoded>{_cdata(html_desc)}</content:encoded>\n" if html_desc else ""
+    )
     return (
         "<item>\n"
         f"      <title>{title}</title>\n"
         f"      <description>{desc}</description>\n"
+        f"{content_encoded}"
         f"      <pubDate>{episode['pubDate']}</pubDate>\n"
         f"      <guid>{escape(url)}</guid>\n"
         f"      <enclosure url={quoteattr(url)} length=\"{int(episode['size'])}\" "
@@ -66,6 +82,10 @@ def update_rss_feed(episode):
     # guid 沿用 mp3 網址（與歷史集數一致，不可改，否則播客平台會視為新集數）
     guid = episode["url"]
     new_item = _build_item(episode)
+
+    # <content:encoded> 需要 xmlns:content；舊 feed 已有就不動
+    if "<content:encoded>" in new_item and "xmlns:content=" not in content:
+        content = content.replace("<rss ", f'<rss xmlns:content="{_CONTENT_NS}" ', 1)
 
     state = {"replaced": 0, "dropped": 0}
 
