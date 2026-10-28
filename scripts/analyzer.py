@@ -1,14 +1,14 @@
 """
-AI 播報稿生成（v1.2.0）
+AI 播報稿生成（v1.3.0）
 
-預設順序：Gemini → Groq → OpenRouter(:free) → DeepSeek
+預設順序：Gemini → Groq → Cloudflare Workers AI → OpenRouter(:free) → DeepSeek
   - 前三個是免費額度；DeepSeek 是付費（按量計費，一集約幾分之一美分），放最後當最終防線
   - 用環境變數 PROVIDER_ORDER 調整順序，例如 "gemini,groq,deepseek,openrouter"
   - 沒有設定對應 API Key 的提供商會自動跳過（並在日誌顯示）
 
 GitHub Secrets（有設才會啟用）：
-  GEMINI_API_KEY / GROQ_API_KEY / OPENROUTER_API_KEY / DEEPSEEK_API_KEY
-可選：用環境變數 GROQ_MODEL / OPENROUTER_MODEL / DEEPSEEK_MODEL 指定優先使用的模型
+  GEMINI_API_KEY / GROQ_API_KEY / CLOUDFLARE_API_TOKEN+CLOUDFLARE_ACCOUNT_ID / OPENROUTER_API_KEY / DEEPSEEK_API_KEY
+可選：用環境變數 GROQ_MODEL / CLOUDFLARE_MODEL / OPENROUTER_MODEL / DEEPSEEK_MODEL 指定優先使用的模型
 
 設計原則：模型名稱常被下架，所以不寫死，執行時先向各家 API 查詢「這把 key 現在
 實際可用的模型」，再依偏好順序嘗試；查不到才退回內建名單。
@@ -16,7 +16,7 @@ GitHub Secrets（有設才會啟用）：
 import logging, os, re, time
 import requests
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ SYSTEM = """你是一位專業的台灣財經播客主持人，聲音沉穩、�
 請把提供的新聞素材整理成一段完整的廣播播報稿。
 
 格式規定：
-1. 開場白：「各位聽眾朋友好，歡迎收聽美股科技晨報，今天是 {date}，我是您的主持人。」
+1. 開場白：「各位聽眾朋友好，歡迎收聽美股科技收盤簡報，今天是 {date}，我是您的主持人。」
 2. 用自然口語過渡每則新聞，禁止使用「第一則」「第二則」等數字列表
    常用過渡語：「首先來看」「接下來」「另一個值得關注的消息是」「在科技板塊方面」
    「我們再來看宏觀面」「說到能源與儲能」「值得投資人注意的是」
@@ -248,6 +248,25 @@ def _groq(prompt: str) -> str:
     return _run_candidates("Groq", cands, call)
 
 
+# ── Cloudflare Workers AI（免費額度：每天 10,000 neurons）──────────────
+# 使用 OpenAI 相容端點；需要 CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID。
+# 模型上下文視窗約 24k tokens，一集素材遠低於此。
+CF_PREFERRED = ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/meta/llama-3.1-8b-instruct"]
+
+
+def _cloudflare(prompt: str) -> str:
+    key = os.environ.get("CLOUDFLARE_API_TOKEN", "")
+    acct = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
+    if not key or not acct:
+        raise ValueError("CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID 未設定")
+    base = f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/v1"
+    cands = [m for m in [os.environ.get("CLOUDFLARE_MODEL", "")] + CF_PREFERRED if m]
+    log.info(f"   Cloudflare 候選模型: {cands}")
+    return _run_candidates(
+        "Cloudflare", cands,
+        lambda m: _chat_call(base, key, m, prompt, 3500))
+
+
 # ── 3. OpenRouter（免費 :free 模型，第四個備援）────────────────────────
 # 官方限制：未儲值帳號 20 次/分、50 次/天；每天只跑一次綽綽有餘。
 # :free 模型清單常變動，所以每次向公開的 /models 查詢現在有哪些。
@@ -322,10 +341,11 @@ def _deepseek(prompt: str) -> str:
 _REGISTRY = {
     "gemini":     ("Gemini",     _gemini,     "GEMINI_API_KEY"),
     "groq":       ("Groq",       _groq,       "GROQ_API_KEY"),
+    "cloudflare": ("Cloudflare", _cloudflare, "CLOUDFLARE_API_TOKEN"),
     "openrouter": ("OpenRouter", _openrouter, "OPENROUTER_API_KEY"),
     "deepseek":   ("DeepSeek",   _deepseek,   "DEEPSEEK_API_KEY"),
 }
-DEFAULT_ORDER = "gemini,groq,openrouter,deepseek"
+DEFAULT_ORDER = "gemini,groq,cloudflare,openrouter,deepseek"
 
 
 def _providers() -> list[tuple]:
@@ -345,7 +365,7 @@ def build_script(items: list[dict], date: str) -> str:
     if not items:
         log.warning("   無新聞素材，生成預設播報稿")
         return (
-            f"各位聽眾朋友好，歡迎收聽美股科技晨報，今天是{date}。"
+            f"各位聽眾朋友好，歡迎收聽美股科技收盤簡報，今天是{date}。"
             "由於今日數據抓取異常，暫無詳細新聞播報，請稍後查看文字版。"
             "祝各位身體健康，闔家平安，神愛世人，耶穌愛您，我們明天見！"
         )

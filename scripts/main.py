@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
 
-__version__ = "1.2.1"
+__version__ = "1.3.0"
 
 # 讓 analyzer.py 的 log.info 也會顯示在 GitHub Actions 日誌
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -46,7 +46,7 @@ def _env_int(name: str, default: int) -> int:
 
 # 說明欄字符上限。試驗值 4000；想調整不用改程式，在 workflow 的 env 加 DESC_MAX_CHARS 即可。
 DESC_MAX_CHARS = _env_int("DESC_MAX_CHARS", 4000)
-SHOW_NAME      = os.environ.get("POD_TITLE") or "美股科技晨報"
+SHOW_NAME      = os.environ.get("POD_TITLE") or "美股科技收盤簡報"
 TRANSCRIPT_DIR = "t/zh-TW"        # R2 上的全文頁資料夾（之後英文版用 t/en-US）
 AI_NOTICE      = "本內容由 AI 協助整理並以合成語音播出，僅供參考，不構成投資建議。"
 LINK_LABEL     = "全文與新聞來源："
@@ -341,7 +341,7 @@ async def main():
     upload_file(mp3_path, mp3_key, "audio/mpeg")
 
     # ④-b 全文頁（HTML + Markdown）存到 R2，說明欄會附上連結
-    title = f"{disp} 美股科技晨報"
+    title = f"{disp} {SHOW_NAME}"
     print("④-b 儲存全文頁...")
     transcript_url = publish_transcript(base_url, date_str, title, script, items, episode_url)
     if transcript_url:
