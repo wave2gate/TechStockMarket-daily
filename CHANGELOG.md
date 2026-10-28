@@ -1,11 +1,26 @@
-# CHANGELOG — 美股科技晨報（TechStockMarket-daily）
+# CHANGELOG — 美股科技收盤簡報（TechStockMarket-daily）
 
 版本規則：整個 repo 的版本號以本檔最上方一段為準（`主版本.次版本.修補版本`）。
 每次改版：① 只有「有改動的檔案」才需要升 `__version__`，沒動的檔案不必重傳
 ② 在本檔最上方新增一段 ③ 一起 commit。
 Actions 日誌第一行會印出「版本：main x | analyzer x | publish x」，用來確認跑的是新程式碼；
 出現 `?` 代表那個檔案還是舊版（沒有 `__version__`）。
-各檔案目前版本：main 1.2.1 ／ publish 1.2.1 ／ analyzer 1.2.0（本次未改動）。
+各檔案目前版本：main 1.3.0 ／ publish 1.2.1（未改動）／ analyzer 1.3.0 ／ trial 1.3.0。
+
+---
+
+## [1.3.0] — 2026-10-28　改名 + Cloudflare Workers AI + 不發布試跑
+### 新增
+- **Cloudflare Workers AI** 加入提供商鏈（`analyzer.py`）：預設順序 Gemini → Groq → Cloudflare → OpenRouter → DeepSeek。
+  走 OpenAI 相容端點，模型 `@cf/meta/llama-3.3-70b-instruct-fp8-fast`（備用 `llama-3.1-8b-instruct`），
+  需 Secrets：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`；可用 `CLOUDFLARE_MODEL` 指定模型。
+- **不發布試跑**：`scripts/trial.py` + `.github/workflows/trial.yml`（手動 Run workflow）。只測 AI，
+  不做 TTS、不上傳 R2、不改 feed、不 commit；結果與全文寫在該次 Run 的 Summary 頁。
+### 變更
+- **節目名改為「美股科技收盤簡報」**：`main.py` 預設名稱、新集標題（`{日期} 美股科技收盤簡報`）、
+  開場白、`feed.xml` 的頻道 `<title>` 與 `<description>`。舊集標題不動。
+  （`POD_TITLE` 不在 Secrets 裡，所以直接改程式預設值；日後設 `POD_TITLE` 可覆蓋。）
+- `publish.yml` 增加 Cloudflare 兩個 Secrets 的傳入。
 
 ---
 
