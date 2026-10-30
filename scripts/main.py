@@ -1,11 +1,11 @@
-# scripts/main.py  (v1.2.1)
+# scripts/main.py  (v1.5.0)
 import asyncio, html, logging, os, re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
 
-__version__ = "1.3.0"
+__version__ = "1.5.0"
 
 # 讓 analyzer.py 的 log.info 也會顯示在 GitHub Actions 日誌
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -14,6 +14,8 @@ from fetcher  import fetch_all
 import analyzer as _an
 from analyzer import build_script
 from tts      import to_mp3
+from weekly   import episode_mode, gather_digest
+import pipeline as _pl
 from r2       import upload_file, upload_text
 
 # publish.py 在同一個 scripts/ 目錄，直接 import
@@ -167,13 +169,13 @@ def build_notes(script: str, transcript_url: str | None,
 
 # ── 全文頁（HTML 給人讀，Markdown 方便日後貼到 Substack 等）──────────────
 def _prompt_items(items: list[dict]) -> list[dict]:
-    """與 analyzer 送給 AI 的條目一致：每個來源取前 5 則（若 analyzer 改規則，這裡要同步）。"""
+    """與 analyzer 送給 AI 的條目一致：每個來源取前 N 則（N 讀 analyzer.ITEMS_PER_SOURCE，自動同步）。"""
     groups: dict[str, list] = {}
     for it in items:
         groups.setdefault(it.get("source", ""), []).append(it)
     out: list[dict] = []
     for its in groups.values():
-        out.extend(its[:5])
+        out.extend(its[:getattr(_an, "ITEMS_PER_SOURCE", 5)])
     return out
 
 
@@ -300,7 +302,7 @@ def dedupe_feed(path: Path) -> tuple[int, int]:
 
 async def main():
     print(f"版本：main {__version__} | analyzer {getattr(_an, '__version__', '?')} "
-          f"| publish {getattr(_pub, '__version__', '?')}")
+          f"| publish {getattr(_pub, '__version__', '?')} | pipeline {getattr(_pl, '__version__', '?')}")
 
     # 日期（UTC）
     now      = datetime.now(timezone.utc)
@@ -321,15 +323,38 @@ async def main():
               "（要重做：手動 Run workflow，或設定 FORCE_REBUILD=1）")
         return
 
-    # ① 抓取 RSS
-    print("① 抓取中...")
-    items = fetch_all()
-    print(f"   共 {len(items)} 則原始條目")
+    # ⓪-b 這集是日更、週六回顧還是週日前瞻（依美國太平洋時間的星期；EPISODE_MODE 可強制指定）
+    mode = episode_mode(now)
+    digest = ""
+    if mode in ("review", "preview"):
+        digest, n_eps = gather_digest(base_url, now, days=7,
+                                      max_chars_per_ep=4000 if mode == "review" else 1500)
+        need = 3 if mode == "review" else 2
+        if n_eps < need:
+            print(f"⚠️ 本週只讀到 {n_eps} 集播報稿（至少需要 {need}），改回日更模式")
+            mode, digest = "daily", ""
+    print(f"   本集模式：{mode}")
+
+    # ① 抓取 RSS（週六回顧只用本週播報稿，不再抓新聞）
+    if mode == "review":
+        items = []
+        print("① 週六回顧：略過新聞抓取")
+    else:
+        print("① 抓取中...")
+        items = fetch_all()
+        print(f"   共 {len(items)} 則原始條目")
 
     # ② AI 生成播報稿
     print("② 生成播報稿...")
-    script = build_script(items, disp)
-    print(f"   {len(script)} 字")
+    script = None
+    if mode == "daily" and os.environ.get("TWO_STAGE", "1") != "0":
+        try:                                    # 兩階段：分組筆記 → 統稿（pipeline.py）
+            script = _pl.build_daily(items, disp)
+        except Exception as ex:
+            print(f"⚠️ 兩階段流程失敗，退回一次寫完：{str(ex)[:200]}")
+    if script is None:
+        script = build_script(items, disp, mode, digest)
+    print(f"   {len(script)} 字（約 {len(script) / 300:.1f} 分鐘，以每分鐘 300 字估算）")
 
     # ③ TTS → MP3（存到 /tmp 避免汙染 repo）
     print("③ TTS 生成音頻...")
@@ -341,7 +366,8 @@ async def main():
     upload_file(mp3_path, mp3_key, "audio/mpeg")
 
     # ④-b 全文頁（HTML + Markdown）存到 R2，說明欄會附上連結
-    title = f"{disp} {SHOW_NAME}"
+    suffix = {"review": "｜本週回顧", "preview": "｜下週前瞻"}.get(mode, "")
+    title = f"{disp} {SHOW_NAME}{suffix}"
     print("④-b 儲存全文頁...")
     transcript_url = publish_transcript(base_url, date_str, title, script, items, episode_url)
     if transcript_url:

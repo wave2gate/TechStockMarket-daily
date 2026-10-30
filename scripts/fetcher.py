@@ -2,6 +2,7 @@
 數據抓取：官方 RSS 為主（穩定），nitter 已基本失效不再依賴
 10個帳號全部有官方 RSS 備源
 """
+__version__ = "1.5.0"
 import time, logging
 from datetime import datetime, timedelta, timezone
 
@@ -45,6 +46,31 @@ SOURCES = [
 
     ("Bloomberg NEF",
      "https://about.bnef.com/feed/"),
+
+    # ── v1.5.0 新增（RSS 網址未在開發環境驗證；抓不到的會自動略過，試跑 Summary 會列出每個來源的則數）──
+    ("Financial Times",
+     "https://www.ft.com/rss/home"),
+
+    ("Benzinga",
+     "https://www.benzinga.com/feed"),
+
+    ("Investopedia",
+     "https://www.investopedia.com/feedbuilder/feed/getfeed?feedName=rss_headline"),
+
+    ("RCR Wireless",
+     "https://www.rcrwireless.com/feed"),
+
+    ("Telecoms.com",
+     "https://www.telecoms.com/feed/"),
+
+    ("FierceWireless",
+     "https://www.fiercewireless.com/rss/xml"),
+
+    ("Light Reading",
+     "https://www.lightreading.com/rss.xml"),
+
+    ("SDxCentral",
+     "https://www.sdxcentral.com/feed/"),
 ]
 
 # 備用：若官方 RSS 失敗，嘗試這些替代源
@@ -52,6 +78,7 @@ FALLBACKS = {
     "Bloomberg Markets": "https://feeds.bloomberg.com/technology/news.rss",
     "Bloomberg NEF":     "https://www.bnef.com/core/search/news.rss",
     "Seeking Alpha":     "https://seekingalpha.com/market_currents.xml",
+    "FierceWireless":    "https://www.fierce-network.com/rss/xml",
 }
 
 
