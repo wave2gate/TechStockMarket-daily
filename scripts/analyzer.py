@@ -1,5 +1,5 @@
 """
-AI 播報稿生成（v1.5.0）
+AI 播報稿生成（v1.5.1）
 
 預設順序：Gemini → Groq → Cloudflare Workers AI → OpenRouter(:free) → DeepSeek
   - 前三個是免費額度；DeepSeek 是付費（按量計費，一集約幾分之一美分），放最後當最終防線
@@ -16,7 +16,7 @@ GitHub Secrets（有設才會啟用）：
 import logging, os, re, time
 import requests
 
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 
 log = logging.getLogger(__name__)
 
@@ -47,8 +47,12 @@ SYSTEM = """你是一位專業的台灣財經播客主持人，聲音沉穩、�
 _AUDIENCE_RULES = """語氣中立克制：用「可能」「值得留意」「市場關注」描述可能性，避免「將會」「必然」「勢必」「一定」，不做預判。
 金額一律以美元表示，不要換算其他貨幣；素材的金額若不是美元，不要寫出那個金額，只說明事件本身。
 聽眾多是上班族副業投資者，只做多、不做空、不用槓桿，有每日交易、每週交易與長期定投的人，多數有技術背景、偏保守。
-因此說明影響時，著重「對只做多、不加槓桿的人需要留意什麼風險或指標」；不談做空、槓桿、選擇權等操作；
-可以多交代一點原理與因果，不要用煽動的字眼。"""
+因此說明影響時，著重「這件事可能牽動哪些風險、指標或後續事件」；不談做空、槓桿、選擇權；
+可以多交代一點原理與因果，不要用煽動的字眼。
+重要：不要在播報稿裡直接說出上述聽眾設定（例如「只做多」「不用槓桿」「上班族」「副業」「保守」「長期定投的投資人」），
+讓內容的角度符合他們即可，不必點名。
+也不要給資產配置或持股建議（例如分散配置、保留現金部位、檢視手中持股、逢低、加碼），只說明要留意的風險、指標與事件。
+全文用繁體中文；除了公司名、人名與 AI、Fed、CPI 這類通用縮寫，不要夾雜沒有翻譯的英文單字。"""
 
 _RULES_COMMON = """全程繁體中文口語，不用 Markdown 符號，不用括號。
 只陳述事實與可能的影響，絕對不給買賣建議；不得出現「逢低加碼」「建議觀望」「持續持有」「可以買進」等字眼。
@@ -438,7 +442,43 @@ def build_script(items: list[dict], date: str, mode: str = "daily", digest: str 
 
     prompt = _build_prompt(items, date, mode, digest)
     log.info(f"   模式：{mode}；提示詞約 {len(prompt)} 字")
-    return _run_chain(prompt)
+    text = _run_chain(prompt)
+    target = 2300 if mode == "preview" else None
+    return ensure_length(text, prompt, target)
+
+
+LENGTH_TARGET = int(os.environ.get("LENGTH_TARGET", "") or 2600)   # 低於這個字數會自動擴寫一次（約 8.5 分鐘）
+CLOSING_MARK = "神愛世人"                                              # 擴寫後必須還在，確保結尾祝福沒被吃掉
+
+
+def ensure_length(text: str, source_prompt: str, target: int | None = None) -> str:
+    """稿子偏短時，請 AI 在不新增事實的前提下擴寫一次；失敗或品質不對就沿用原稿。"""
+    target = target or LENGTH_TARGET
+    if len(text) >= target:
+        return text
+    log.warning(f"   稿子只有 {len(text)} 字，低於目標 {target}，嘗試擴寫一次")
+    prompt = (
+        f"以下是一份已經寫好的廣播播報稿（目前 {len(text)} 字）。請在不新增任何事實的前提下，把它擴寫到至少 {target + 300} 字。\n"
+        "擴寫規則：\n"
+        "- 可以多說明名詞與機制（例如資本支出是什麼、為什麼資料中心需要儲能）、事件之間的因果、背景脈絡，"
+        "以及這件事可能牽動的風險、指標與後續事件；\n"
+        "- 絕對不可新增素材裡沒有的具體事件、數字、日期或公司動態；\n"
+        "- 保留開場白、風險提醒、身心健康提醒與最後祝福的原句與位置；各段都要擴寫，不要重複同樣的話；\n"
+        "- 仍然全程繁體中文口語，不用 Markdown 符號；遵守原稿提示詞的所有規則。\n\n"
+        f"【原始提示詞與素材（供核對事實用）】\n{source_prompt[:14000]}\n\n【待擴寫的稿子】\n{text}"
+    )
+    try:
+        longer = _run_chain(prompt)
+    except Exception as ex:
+        log.warning(f"   擴寫失敗，沿用原稿：{str(ex)[:150]}")
+        return text
+    longer = re.sub(r"\*{1,2}(.+?)\*{1,2}", r"\1", longer)
+    longer = re.sub(r"#{1,4}\s*", "", longer)
+    if len(longer) >= len(text) + 300 and CLOSING_MARK in longer:
+        log.info(f"   ✓ 擴寫完成：{len(text)} → {len(longer)} 字")
+        return longer
+    log.warning(f"   擴寫結果不合格（{len(longer)} 字，結尾祝福{'在' if CLOSING_MARK in longer else '不見了'}），沿用原稿")
+    return text
 
 
 def _run_chain(prompt: str) -> str:

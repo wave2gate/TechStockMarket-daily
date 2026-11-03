@@ -14,20 +14,20 @@ import logging, os, re, time
 
 import analyzer as A
 
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 log = logging.getLogger(__name__)
 
 GROUPS = [
-    {"key": "macro", "name": "大盤、宏觀與財報", "provider": "gemini", "pick": 5,
-     "per_source": 5, "max_out": 1800, "lang": "zh",
+    {"key": "macro", "name": "大盤、宏觀與財報", "provider": "gemini", "pick": 8,
+     "per_source": 5, "max_out": 3200, "lang": "zh",
      "sources": ["WSJ Markets", "CNBC", "Bloomberg Markets", "Yahoo Finance", "MarketWatch",
                  "Investing.com", "Financial Times", "Benzinga", "Investopedia", "Seeking Alpha"]},
-    {"key": "tech", "name": "科技、AI 與通訊網路", "provider": "groq", "pick": 4,
-     "per_source": 4, "max_out": 1500, "lang": "zh",
+    {"key": "tech", "name": "科技、AI 與通訊網路", "provider": "groq", "pick": 6,
+     "per_source": 5, "max_out": 2200, "lang": "zh",
      "sources": ["TechCrunch", "RCR Wireless", "Telecoms.com", "FierceWireless",
                  "Light Reading", "SDxCentral"]},
-    {"key": "energy", "name": "能源與儲能", "provider": "cloudflare", "pick": 3,
-     "per_source": 6, "max_out": 1200, "lang": "en",
+    {"key": "energy", "name": "能源與儲能", "provider": "cloudflare", "pick": 4,
+     "per_source": 6, "max_out": 1400, "lang": "en",
      "sources": ["Energy Storage News", "Bloomberg NEF"]},
 ]
 MIN_GROUPS = 2          # 至少要有幾組筆記才進統稿
@@ -35,8 +35,9 @@ MIN_GROUPS = 2          # 至少要有幾組筆記才進統稿
 NOTE_RULES_ZH = """你是財經資料編輯。下面是「{name}」的新聞素材。
 請挑出對美股、科技產業最有影響力的 {pick} 則，依重要度由高到低排列。
 輸出格式：每則一行，欄位用全形「｜」分隔，不要輸出任何其他文字：
-來源｜事實（一句，數字與專有名詞照原文）｜背景（一句）｜對科技股可能的影響（一句，只描述可能性）｜重要度（1到5的整數）
+來源｜事實（一句，數字與專有名詞照原文）｜背景與因果（一到兩句，說明為什麼會發生、牽動什麼）｜可能的影響（一到兩句，只描述可能性，可提到值得留意的指標）｜重要度（1到5的整數）
 規則：
+- 「來源」欄只填素材中【】內的媒體名稱，不要填公司名。
 - 只用素材裡的資訊，不可補充；同一事件只算一則；與美股、科技、宏觀、通訊、儲能無關的略過。
 - 金額一律只保留美元；其他貨幣的金額不要換算，也不要寫出那個金額。
 - 語氣中立克制，用「可能」「值得留意」，不預測漲跌，不給買賣建議。"""
@@ -44,8 +45,9 @@ NOTE_RULES_ZH = """你是財經資料編輯。下面是「{name}」的新聞素�
 NOTE_RULES_EN = """You are a financial news editor. Below are news items for "{name}".
 Pick the {pick} items most relevant to US stocks and the technology industry, most important first.
 Output one line per item, fields separated by the full-width bar "｜", and nothing else:
-Source｜Fact (one sentence, copy numbers and names exactly)｜Background (one sentence)｜Possible impact on tech stocks (one sentence, describe possibilities only)｜Importance (integer 1-5)
+Source｜Fact (one sentence, copy numbers and names exactly)｜Background and causes (one or two sentences)｜Possible impact (one or two sentences, possibilities only; may mention indicators to watch)｜Importance (integer 1-5)
 Rules:
+- The Source field must be the media name shown in 【】, not a company name.
 - Use only information in the items; never add facts. One line per event. Skip items unrelated to US stocks, tech, macro, telecom or energy storage.
 - Keep amounts in US dollars only. Do not convert or quote amounts in other currencies.
 - Neutral tone: say "may" or "could"; no price predictions; no buy/sell advice."""
@@ -55,9 +57,10 @@ SYSTEM_COMPOSE = """你是一位專業的台灣財經播客主持人，聲音沉
 
 格式規定：
 1. 開場白：「各位聽眾朋友好，歡迎收聽美股科技收盤簡報，今天是 {date}，我是您的主持人。」
-2. 綜述：開場後先用一小段（四到六句）說出今天市場的整體氣氛與兩三條主軸。
+2. 綜述：開場後先用一段（六到八句，約 300 到 400 字）說出今天市場的整體氣氛與兩三條主軸。
 3. 主體依序分四段：美股與科技重點、宏觀與利率、通訊與網路、能源與儲能。
-   每則新聞用不超過五句話：發生了什麼、背景、可能的影響。重要度高的多著墨，同一事件的多條筆記要合併。
+   每則新聞用四到六句話（約 150 到 250 字）：先說發生了什麼，再講背景與因果（可補充名詞或機制的說明），
+   最後說可能的影響與值得留意的指標。重要度高的多著墨，同一事件的多條筆記要合併。
    某一段沒有筆記就整段略過，不要硬湊。
    用自然口語過渡，禁止「第一則」「第二則」等數字列表；
    常用過渡語：「首先來看」「接下來」「另一個值得關注的消息是」「在科技板塊方面」「我們再來看宏觀面」「說到能源與儲能」。
@@ -66,7 +69,8 @@ SYSTEM_COMPOSE = """你是一位專業的台灣財經播客主持人，聲音沉
 5. 身心健康提醒：一到兩句，提醒聽眾無論走勢如何，都要維持規律作息與運動，長期心態比短線漲跌更重要；
    不要出現「逢低」「加碼」「定投某標的」等操作字眼。
 6. 最後祝福：「祝各位身體健康、投資順利，闔家平安，神愛世人，耶穌愛您，我們明天見！」
-7. 字數 2800–3300 字。筆記不足以撐到這個長度時，寧可寫短，也不可補充筆記沒有的事實或數字。
+7. 字數 2800–3300 字（約 10 分鐘）。可以用名詞解釋、機制與因果說明來展開，
+   但不可新增筆記沒有的具體事件、數字或日期。
 """ + A._RULES_COMMON
 
 
@@ -118,6 +122,8 @@ def _notes_for_group(items: list[dict], g: dict, trace: list) -> list[dict]:
     rules = (NOTE_RULES_EN if g["lang"] == "en" else NOTE_RULES_ZH).format(name=g["name"], pick=g["pick"])
     prompt = f"{rules}\n\n素材（共 {n} 則）：\n{block}"
     order = [g["provider"]] + (["gemini"] if g["provider"] != "gemini" else [])
+    want = max(2, g["pick"] // 2)           # 少於這個數量就請下一家補做，取筆記較多的那份
+    best: list[dict] = []
     for prov in order:
         t0 = time.time()
         try:
@@ -129,11 +135,15 @@ def _notes_for_group(items: list[dict], g: dict, trace: list) -> list[dict]:
             log.info(f"   ✓ [{g['name']}] {prov} 產出 {len(notes)} 則筆記（{time.time() - t0:.0f}s）")
             trace.append({"group": g["name"], "provider": prov, "status": "成功",
                           "seconds": round(time.time() - t0), "notes": notes})
-            return notes
+            if len(notes) > len(best):
+                best = notes
+            if len(best) >= want:
+                return best
+            log.warning(f"   [{g['name']}] 只有 {len(best)} 則（想要至少 {want}），請下一家補做")
         except Exception as ex:
             log.warning(f"   ✗ [{g['name']}] {prov} 失敗：{str(ex)[:200]}")
             trace.append({"group": g["name"], "provider": prov, "status": f"失敗：{str(ex)[:120]}", "notes": []})
-    return []
+    return best
 
 
 def _notes_text(groups_notes: list[tuple[str, list[dict]]]) -> str:
@@ -162,5 +172,6 @@ def build_daily(items: list[dict], date: str, trace: list | None = None) -> str:
     trace.append({"group": "統稿", "provider": "chain", "status": "進行中", "notes": [],
                   "notes_text": _notes_text(got)})
     text = A._run_chain(prompt)
+    text = A.ensure_length(text, prompt)
     trace[-1]["status"] = f"完成（{len(text)} 字）"
     return text

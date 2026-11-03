@@ -2,7 +2,7 @@
 數據抓取：官方 RSS 為主（穩定），nitter 已基本失效不再依賴
 10個帳號全部有官方 RSS 備源
 """
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 import time, logging
 from datetime import datetime, timedelta, timezone
 
@@ -11,7 +11,11 @@ import feedparser, requests
 log = logging.getLogger(__name__)
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; PodcastBot/1.0)"}
-CUTOFF  = datetime.now(timezone.utc) - timedelta(hours=30)
+DEFAULT_AGE_H = 30
+# 更新較慢的專業媒體放寬時間窗（小時）；否則一直是 0 則
+MAX_AGE_H = {"Bloomberg NEF": 96, "Energy Storage News": 72, "RCR Wireless": 72, "Telecoms.com": 72,
+             "SDxCentral": 72, "Investopedia": 72, "FierceWireless": 48, "Light Reading": 48}
+DIAG: dict[str, dict] = {}      # 每個來源最後一次嘗試的結果（試跑 Summary 會列出）
 MAX_PER = 8
 
 # ── 帳號清單：(顯示名稱, 官方RSS) ─────────────────────────────────────
@@ -79,15 +83,25 @@ FALLBACKS = {
     "Bloomberg NEF":     "https://www.bnef.com/core/search/news.rss",
     "Seeking Alpha":     "https://seekingalpha.com/market_currents.xml",
     "FierceWireless":    "https://www.fierce-network.com/rss/xml",
+    "RCR Wireless":      "https://www.rcrwireless.com/feed/",
+    "Telecoms.com":      "https://telecoms.com/feed/",
+    "WSJ Markets":       "https://feeds.a.dj.com/rss/RSSWSJD.xml",
+    "Yahoo Finance":     "https://finance.yahoo.com/news/rssindex",
 }
 
 
 def _parse(url: str, label: str) -> list[dict]:
-    """解析單個 RSS URL，返回標準化條目"""
+    """解析單個 RSS URL，返回標準化條目；同時把診斷結果記進 DIAG。"""
+    base = label.replace("(alt)", "")
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=MAX_AGE_H.get(base, DEFAULT_AGE_H))
+    diag = {"url": url, "status": "-", "entries": 0, "fresh": 0, "error": ""}
+    DIAG[label] = diag
     try:
         r = requests.get(url, headers=HEADERS, timeout=15)
+        diag["status"] = r.status_code
         r.raise_for_status()
         feed  = feedparser.parse(r.content)
+        diag["entries"] = len(feed.entries)
         items = []
         for e in feed.entries[:MAX_PER]:
             # 解析發布時間
@@ -100,7 +114,7 @@ def _parse(url: str, label: str) -> list[dict]:
                         break
                     except Exception:
                         pass
-            if pub < CUTOFF:
+            if pub < cutoff:
                 continue
             items.append({
                 "source":  label,
@@ -108,8 +122,10 @@ def _parse(url: str, label: str) -> list[dict]:
                 "summary": getattr(e, "summary", "")[:400].strip(),
                 "url":     getattr(e, "link",    ""),
             })
+        diag["fresh"] = len(items)
         return items
     except Exception as ex:
+        diag["error"] = f"{type(ex).__name__}: {str(ex)[:100]}"
         log.warning(f"   {label} RSS 失敗: {ex}")
         return []
 

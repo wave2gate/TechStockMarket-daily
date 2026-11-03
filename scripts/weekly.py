@@ -1,7 +1,7 @@
 """
 週末特別集用的工具（v1.4.0）
 
-  episode_mode(now)        依「美國太平洋時間」的星期決定這集是 daily / review / preview
+  episode_mode(now)        依「美國太平洋時間的傍晚日期」決定這集是 daily / review / preview
                            太平洋時間週六 → review（本週回顧）；週日 → preview（下週前瞻）
                            （不論用 UTC 01:00 或 22:30 發布，都落在同一天，行為一致）
   gather_digest(...)       從 R2 的全文頁 t/zh-TW/YYYYMMDD.md 讀回這週每天的播報稿
@@ -14,18 +14,26 @@ from zoneinfo import ZoneInfo
 import requests
 
 log = logging.getLogger(__name__)
-__version__ = "1.4.0"
+__version__ = "1.5.1"
 
 PT = ZoneInfo("America/Los_Angeles")
 WEEKEND_MARKERS = ("週回顧", "下週前瞻")      # 標題含這些字的集數是特別集，不當作「本週素材」
 TRANSCRIPT_DIR = "t/zh-TW"
 
 
+def evening_date_pt(now_utc: datetime):
+    """這次執行屬於「太平洋時間的哪一天傍晚」。
+    GitHub 排程常延遲，UTC 01:00 的排程實際會在 UTC 05:30–07:30 跑，換成太平洋時間已逼近或越過午夜，
+    直接取星期會差一天（v1.4.0 曾因此把週六回顧誤判成週日前瞻）。
+    做法：先扣掉 4 小時再換算，這樣 UTC 05:00–10:00 都算前一個太平洋日的傍晚，UTC 22:30 排程則算當天。"""
+    return (now_utc - timedelta(hours=4)).astimezone(PT)
+
+
 def episode_mode(now_utc: datetime) -> str:
     forced = (os.environ.get("EPISODE_MODE") or "").strip().lower()
     if forced in ("daily", "review", "preview"):
         return forced
-    wd = now_utc.astimezone(PT).weekday()     # 0=週一 … 5=週六 6=週日
+    wd = evening_date_pt(now_utc).weekday()   # 0=週一 … 5=週六 6=週日
     return {5: "review", 6: "preview"}.get(wd, "daily")
 
 

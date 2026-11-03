@@ -1,5 +1,5 @@
 """
-試跑（v1.5.0）：只測 AI，不做 TTS、不上傳、不改 feed、不 commit。
+試跑（v1.5.1）：只測 AI，不做 TTS、不上傳、不改 feed、不 commit。
 對每個已設定 Key 的提供商各生成一次播報稿，結果寫進 Actions 的 Summary 頁。
 用環境變數 TRIAL_PROVIDERS 指定要測哪些：gemini / groq / cloudflare 各自單獨寫一份稿；
 "pipeline" 則測兩階段流程（分組筆記 → 統稿），並列出各組筆記。
@@ -73,6 +73,12 @@ def main():
     src_rows = ["", "## 各來源抓到幾則（0 代表該 RSS 讀不到或太舊）", "", "| 來源 | 則數 |", "|---|---|"]
     all_src = [lab for lab, _ in __import__("fetcher").SOURCES]
     src_rows += [f"| {lab} | {counts.get(lab, 0) + counts.get(lab + '(alt)', 0)} |" for lab in all_src]
+    import fetcher as _f
+    diag = ["", "## 來源診斷（為什麼是 0 則）", "",
+            "| 來源 | HTTP | 條目數 | 時間窗內 | 錯誤 |", "|---|---|---|---|---|"]
+    for lab, d in _f.DIAG.items():
+        diag.append(f"| {lab} | {d['status']} | {d['entries']} | {d['fresh']} | {d['error']} |")
+    src_rows += diag
     out += src_rows + extra_md
     for name, text in texts:
         out += ["", f"## {name}", "", text]
