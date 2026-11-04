@@ -9,6 +9,9 @@ on:
       fake_now:
         description: "假裝現在的 UTC 時間，例如 2026-11-06T22:00:00（測週末或休市日用；留空＝現在）"
         default: ""
+      audio:
+        description: "是否合成語音供下載試聽（不發布）：1 是 / 0 否"
+        default: "0"
       audit:
         description: "AI 審稿：1 開 / 0 關"
         default: "1"
@@ -24,13 +27,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install feedparser requests tzdata
+      - run: pip install feedparser requests tzdata edge-tts
       - name: 試跑（完整流程，不做語音、不發布）
         run: cd scripts && python trial.py
         env:
           EPISODE_MODE:          ${{ inputs.mode != 'auto' && inputs.mode || '' }}
           FAKE_NOW:              ${{ inputs.fake_now }}
           AUDIT:                 ${{ inputs.audit }}
+          AUDIO:                 ${{ inputs.audio }}
           R2_PUBLIC_URL:         ${{ secrets.R2_PUBLIC_URL }}
           GEMINI_API_KEY:        ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY:          ${{ secrets.GROQ_API_KEY }}
@@ -38,3 +42,10 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           OPENROUTER_API_KEY:    ${{ secrets.OPENROUTER_API_KEY }}
           DEEPSEEK_API_KEY:      ${{ secrets.DEEPSEEK_API_KEY }}
+      - name: 上傳試聽音檔（只有 audio=1 才有）
+        if: ${{ inputs.audio == '1' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: trial-episode-mp3
+          path: trial_out/trial_episode.mp3
+          retention-days: 3
