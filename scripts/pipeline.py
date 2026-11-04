@@ -13,20 +13,20 @@ import logging, os, re, time
 
 import analyzer as A
 
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 log = logging.getLogger(__name__)
 
 GROUPS = [
-    {"key": "macro", "name": "大盤、宏觀與財報", "provider": "gemini", "pick": 8,
+    {"key": "macro", "name": "大盤、宏觀與財報", "provider": "gemini", "pick": 10,
      "per_source": 5, "max_out": 3200, "lang": "zh",
      "sources": ["Federal Reserve", "BLS", "WSJ Markets", "CNBC", "Bloomberg Markets", "Yahoo Finance",
                  "MarketWatch", "Investing.com", "Nasdaq", "Financial Times", "Benzinga", "Investopedia",
                  "Seeking Alpha"]},
-    {"key": "tech", "name": "科技、AI 與通訊網路", "provider": "groq", "pick": 6,
+    {"key": "tech", "name": "科技、AI 與通訊網路", "provider": "groq", "pick": 8,
      "per_source": 5, "max_out": 2200, "lang": "zh",
      "sources": ["TechCrunch", "RCR Wireless", "Telecoms.com", "FierceWireless", "Light Reading",
                  "SDxCentral", "Mobile World Live"]},
-    {"key": "energy", "name": "能源與儲能", "provider": "cloudflare", "pick": 4,
+    {"key": "energy", "name": "能源與儲能", "provider": "cloudflare", "pick": 5,
      "per_source": 6, "max_out": 1400, "lang": "en",
      "sources": ["Energy Storage News", "Bloomberg NEF", "Utility Dive", "Electrek"]},
 ]
@@ -62,7 +62,8 @@ SYSTEM_COMPOSE = """你是一位專業的台灣財經播客主持人，聲音沉
 下面是編輯整理好的新聞筆記。請把它們寫成廣播播報稿的主體。
 結構：先用一小段（兩到四句）概述今天筆記裡的主要脈絡；再依主題逐則說明——
 美股與科技、宏觀與利率、通訊與網路、能源與儲能；某一類沒有筆記就整段略過。
-每則先說事實，再說筆記中的「背景」與「可能影響」；筆記寫「無」或 none 的欄位就不要講，不要自己補。
+每則先說事實，再說筆記中的背景與可能影響，用自然的句子帶出；筆記寫「無」或 none 的欄位就不要講，不要自己補。
+絕對不要照抄筆記的欄位名稱（例如「事實」「背景」「影響為」「可能影響」），也不要把同一件事用不同說法重複講兩次。
 重要度高的先講，同一事件的多條筆記合併。用自然口語過渡，例如「首先來看」「接下來」「另一個值得關注的消息是」。
 英文筆記請翻成台灣慣用的繁體中文，公司名可保留原文。
 筆記有多少就講多少，每則的長短由筆記內容決定，不要為了拉長而灌水。
@@ -113,6 +114,8 @@ def _parse_notes(text: str, pick: int, used: list[dict] | None = None) -> list[d
             continue
         m = re.search(r"[1-5]", parts[-1])
         none = lambda x: x.strip(" 。.").lower() in ("無", "无", "none", "n/a", "")
+        if parts[3] and parts[1][:25] in parts[3]:      # 「影響」只是把事實再抄一次 → 視為沒有
+            parts[3] = "無"
         row = {"source": parts[0][:40], "fact": parts[1],
                "background": "無" if none(parts[2]) else parts[2],
                "impact": "無" if none(parts[3]) else parts[3],

@@ -3,7 +3,7 @@
 新增官方來源：聯準會、勞工統計局；Google News RSS 只當作標題備援（無摘要）。
 新網址未必都有效，試跑 Summary 的「來源診斷」會逐一列出。
 """
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 import time, logging
 from datetime import datetime, timedelta, timezone
 
@@ -116,7 +116,8 @@ FALLBACKS = {
     "SDxCentral":        [_gnews("site:sdxcentral.com")],
     "Federal Reserve":   ["https://www.federalreserve.gov/feeds/press_monetary.xml"],
 }
-MAX_AGE_H.update({"Federal Reserve": 120, "BLS": 120, "Utility Dive": 48, "Electrek": 36, "Mobile World Live": 72})
+TIMEOUT = {"Nasdaq": 30}
+MAX_AGE_H.update({"Federal Reserve": 240, "BLS": 240, "Utility Dive": 48, "Electrek": 36, "Mobile World Live": 72})
 
 
 def _parse(url: str, label: str) -> list[dict]:
@@ -126,7 +127,7 @@ def _parse(url: str, label: str) -> list[dict]:
     diag = {"url": url, "status": "-", "entries": 0, "fresh": 0, "newest": "-", "error": ""}
     DIAG[label] = diag
     try:
-        r = requests.get(url, headers=HEADERS, timeout=15)
+        r = requests.get(url, headers=HEADERS, timeout=TIMEOUT.get(base, 15))
         diag["status"] = r.status_code
         r.raise_for_status()
         feed  = feedparser.parse(r.content)

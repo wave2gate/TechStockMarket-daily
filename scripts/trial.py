@@ -1,11 +1,12 @@
 """
-試跑（v1.6.0）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
+試跑（v1.6.1）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
 但不做 TTS、不上傳、不改 feed、不 commit。結果寫進 Actions 的 Summary 頁。
 
 環境變數：
   EPISODE_MODE   daily / holiday / review / preview（空白＝依時間自動判斷）
   FAKE_NOW       假裝現在是這個 UTC 時間（例如 2026-11-06T22:00:00），用來測試週末／休市日；空白＝現在
   AUDIT=0        關閉 AI 審稿（只留程式核對數字）
+  AUDIO=1        另外用 Edge TTS 合成語音，存成 ../trial_out/trial_episode.mp3（工作流程會附成可下載檔，不發布）
 """
 import os, time, logging
 from datetime import datetime, timezone
@@ -71,6 +72,14 @@ def main():
         if t.get("notes"):
             out += ["", f"## 筆記：{t['group']}（{t['provider']}）", ""]
             out += [f"- ({n['source']}, 重要度{n['score']}) {n['fact']} ／ 背景：{n['background']} ／ 影響：{n['impact']}" for n in t["notes"]]
+    if os.environ.get("AUDIO") == "1" and r:
+        import asyncio, tts
+        os.makedirs("../trial_out", exist_ok=True)
+        try:
+            sec = asyncio.run(tts.to_mp3(r["script"], "../trial_out/trial_episode.mp3"))
+            out.insert(4, f"- 語音：已合成 trial_episode.mp3（估算 {sec // 60} 分 {sec % 60} 秒），請到本頁最下方 Artifacts 下載收聽")
+        except Exception as e:
+            out.insert(4, f"- 語音合成失敗：{type(e).__name__}: {str(e)[:150]}")
     md = "\n".join(out)
     print(md)
     path = os.environ.get("GITHUB_STEP_SUMMARY")
