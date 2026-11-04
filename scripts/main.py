@@ -1,21 +1,21 @@
-# scripts/main.py  (v1.5.0)
+# scripts/main.py  (v1.6.0)
 import asyncio, html, logging, os, re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 # 讓 analyzer.py 的 log.info 也會顯示在 GitHub Actions 日誌
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 from fetcher  import fetch_all
 import analyzer as _an
-from analyzer import build_script
 from tts      import to_mp3
-from weekly   import episode_mode, gather_digest
+from weekly   import gather_digest
 import pipeline as _pl
+import market, numcheck, episode as _ep
 from r2       import upload_file, upload_text
 
 # publish.py 在同一個 scripts/ 目錄，直接 import
@@ -304,35 +304,36 @@ async def main():
     print(f"版本：main {__version__} | analyzer {getattr(_an, '__version__', '?')} "
           f"| publish {getattr(_pub, '__version__', '?')} | pipeline {getattr(_pl, '__version__', '?')}")
 
-    # 日期（UTC）
+    # 日期：以「美東交易日」(slot) 為準。Worker 準時觸發與 GitHub 延遲排程會得到同一個 slot → 同一個 guid，不會重複發。
     now      = datetime.now(timezone.utc)
-    date_str = now.strftime("%Y%m%d")
-    disp     = now.strftime("%Y年%-m月%-d日")
+    slot     = market.slot_date(now)
+    date_str = slot.strftime("%Y%m%d")
+    disp     = market.date_zh(slot)
     base_url = os.environ["R2_PUBLIC_URL"].rstrip("/")
     mp3_key  = f"ep_{date_str}.mp3"
     episode_url = f"{base_url}/{mp3_key}"
 
-    print(f"=== {disp} 晨報開始 ===")
+    print(f"=== {disp}（美東交易日）節目開始 ===")
 
-    # ⓪ 防重複：今天的集數已經在 feed 裡就不再重做
+    # ⓪ 防重複：這個 slot 的集數已經在 feed 裡就不再重做
     #    手動按 Run workflow（workflow_dispatch）或設 FORCE_REBUILD=1 才會強制重做並原地更新
     force = (os.environ.get("FORCE_REBUILD") == "1"
              or os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch")
     if already_published(episode_url) and not force:
-        print(f"⏭️  今天（{disp}）的集數已在 feed.xml，跳過。"
+        print(f"⏭️  {disp} 的集數已在 feed.xml，跳過。"
               "（要重做：手動 Run workflow，或設定 FORCE_REBUILD=1）")
         return
 
-    # ⓪-b 這集是日更、週六回顧還是週日前瞻（依美國太平洋時間的星期；EPISODE_MODE 可強制指定）
-    mode = episode_mode(now)
+    # ⓪-b 模式：平日 daily／平日休市 holiday／週六 review／週日 preview（EPISODE_MODE 可強制指定）
+    mode = market.episode_mode(now)
     digest = ""
     if mode in ("review", "preview"):
-        digest, n_eps = gather_digest(base_url, now, days=7,
+        digest, n_eps = gather_digest(base_url, slot, days=7,
                                       max_chars_per_ep=4000 if mode == "review" else 1500)
-        need = 3 if mode == "review" else 2
+        need = 1
         if n_eps < need:
-            print(f"⚠️ 本週只讀到 {n_eps} 集播報稿（至少需要 {need}），改回日更模式")
-            mode, digest = "daily", ""
+            print(f"⚠️ 本週讀不到播報稿，這集改為休市日簡報（不做回顧／前瞻）")
+            mode, digest = "holiday", ""
     print(f"   本集模式：{mode}")
 
     # ① 抓取 RSS（週六回顧只用本週播報稿，不再抓新聞）
@@ -341,20 +342,17 @@ async def main():
         print("① 週六回顧：略過新聞抓取")
     else:
         print("① 抓取中...")
-        items = fetch_all()
+        items = numcheck.prepare_items(fetch_all())
         print(f"   共 {len(items)} 則原始條目")
 
-    # ② AI 生成播報稿
+    # ② 稿件：主體（AI）→ 防幻覺（程式核對數字＋另一個 AI 審稿，可疑句子刪除）→ 開場與結尾（程式寫）
     print("② 生成播報稿...")
-    script = None
-    if mode == "daily" and os.environ.get("TWO_STAGE", "1") != "0":
-        try:                                    # 兩階段：分組筆記 → 統稿（pipeline.py）
-            script = _pl.build_daily(items, disp)
-        except Exception as ex:
-            print(f"⚠️ 兩階段流程失敗，退回一次寫完：{str(ex)[:200]}")
-    if script is None:
-        script = build_script(items, disp, mode, digest)
-    print(f"   {len(script)} 字（約 {len(script) / 300:.1f} 分鐘，以每分鐘 300 字估算）")
+    result = _ep.build(now, mode, items, digest)
+    script = result["script"]
+    u = result["used"]
+    print(f"   主體 {len(result['body'])} 字（AI 原稿 {result['raw_len']} 字，刪除 {u['removed']} 句；"
+          f"審稿：{u['audit_status']}；保底稿：{u['safe_mode']}）")
+    print(f"   全稿 {len(script)} 字（約 {len(script) / 300:.1f} 分鐘，以每分鐘 300 字估算）")
 
     # ③ TTS → MP3（存到 /tmp 避免汙染 repo）
     print("③ TTS 生成音頻...")
@@ -366,7 +364,7 @@ async def main():
     upload_file(mp3_path, mp3_key, "audio/mpeg")
 
     # ④-b 全文頁（HTML + Markdown）存到 R2，說明欄會附上連結
-    suffix = {"review": "｜本週回顧", "preview": "｜下週前瞻"}.get(mode, "")
+    suffix = {"review": "｜本週回顧", "preview": "｜下週前瞻", "holiday": "｜休市簡報"}.get(mode, "")
     title = f"{disp} {SHOW_NAME}{suffix}"
     print("④-b 儲存全文頁...")
     transcript_url = publish_transcript(base_url, date_str, title, script, items, episode_url)

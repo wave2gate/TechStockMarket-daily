@@ -1,100 +1,72 @@
 """
-AI 播報稿生成（v1.5.1）
+AI 稿件生成（v1.6.0）
+
+v1.6.0 的原則：AI 只寫「節目主體」，開場、風險提醒、署名、結尾由程式（frame.py）負責；
+不設字數目標、不擴寫，素材有多少就講多少；寧可短，也不要編。
 
 預設順序：Gemini → Groq → Cloudflare Workers AI → OpenRouter(:free) → DeepSeek
-  - 前三個是免費額度；DeepSeek 是付費（按量計費，一集約幾分之一美分），放最後當最終防線
-  - 用環境變數 PROVIDER_ORDER 調整順序，例如 "gemini,groq,deepseek,openrouter"
-  - 沒有設定對應 API Key 的提供商會自動跳過（並在日誌顯示）
-
+  - 用環境變數 PROVIDER_ORDER 調整順序；沒有設定 API Key 的提供商會自動跳過
 GitHub Secrets（有設才會啟用）：
   GEMINI_API_KEY / GROQ_API_KEY / CLOUDFLARE_API_TOKEN+CLOUDFLARE_ACCOUNT_ID / OPENROUTER_API_KEY / DEEPSEEK_API_KEY
-可選：用環境變數 GROQ_MODEL / CLOUDFLARE_MODEL / OPENROUTER_MODEL / DEEPSEEK_MODEL 指定優先使用的模型
-
-設計原則：模型名稱常被下架，所以不寫死，執行時先向各家 API 查詢「這把 key 現在
-實際可用的模型」，再依偏好順序嘗試；查不到才退回內建名單。
+模型名稱不寫死：執行時先向各家 API 查詢目前可用的模型，再依偏好順序嘗試。
 """
 import logging, os, re, time
 import requests
 
-__version__ = "1.5.1"
+__version__ = "1.6.0"
 
 log = logging.getLogger(__name__)
 
-SYSTEM = """你是一位專業的台灣財經播客主持人，聲音沉穩、邏輯清晰。
-請把提供的新聞素材整理成一段完整的廣播播報稿。
-
-格式規定：
-1. 開場白：「各位聽眾朋友好，歡迎收聽美股科技收盤簡報，今天是 {date}，我是您的主持人。」
-2. 用自然口語過渡每則新聞，禁止使用「第一則」「第二則」等數字列表
-   常用過渡語：「首先來看」「接下來」「另一個值得關注的消息是」「在科技板塊方面」
-   「我們再來看宏觀面」「說到能源與儲能」「值得投資人注意的是」
-3. 每則新聞簡述事實 + 一句對投資者的影響分析
-4. 結尾：風險提醒（市場波動來自技術面、消息面、機構資金等多重因素，
-   請勿單憑新聞買賣股票，投資需謹慎）
-5. 最後祝福：「祝各位身體健康、投資順利，闔家平安，神愛世人，耶穌愛您，我們明天見！」
-6. 全程繁體中文口語，不用 Markdown 符號，不用括號，字數 2800–3300 字（約 10 分鐘），分成三到四大段：
-   美股與科技重點、宏觀與利率、能源與產業、其他值得留意的消息
-   每則新聞先交代事實與背景，再用兩三句說明為什麼重要、可能牽動哪些族群
-   素材不足以撐到這個長度時，寧可寫短，也不可編造素材沒有的內容或自行補數字
-7. 只陳述事實與影響，絕對不給買賣建議：不得出現「逢低加碼」「建議觀望」「持續持有」「可以買進」等字眼
-8. 「對投資者的影響」要用自然的話帶出，不要照抄「對投資者的影響分析是」這幾個字，
-   每則的說法都要不同；每則新聞至少兩句，不要把全文壓成簡短摘要
-9. 一律使用台灣慣用詞：聯準會（不用美聯儲、聯儲局）、升息／降息（不用加息）、
-   盈餘或獲利（不用盈利）、營收（不用收入）、財報、股價、輝達、蘋果、微軟、亞馬遜；
-   數字用口語中文念法，例如「百分之十」「三百三十二億美元」；
-   英文公司名可保留原文。只能根據提供的素材，不可自行補充素材沒有的事實"""
+LAST_MODEL: dict[str, str] = {}     # 提供商代號 → 最近一次成功使用的模型名（署名用）
+LAST_WINNER: dict[str, str] = {"provider": ""}   # _run_chain 最後由哪一家寫成
 
 _AUDIENCE_RULES = """語氣中立克制：用「可能」「值得留意」「市場關注」描述可能性，避免「將會」「必然」「勢必」「一定」，不做預判。
-金額一律以美元表示，不要換算其他貨幣；素材的金額若不是美元，不要寫出那個金額，只說明事件本身。
-聽眾多是上班族副業投資者，只做多、不做空、不用槓桿，有每日交易、每週交易與長期定投的人，多數有技術背景、偏保守。
-因此說明影響時，著重「這件事可能牽動哪些風險、指標或後續事件」；不談做空、槓桿、選擇權；
-可以多交代一點原理與因果，不要用煽動的字眼。
-重要：不要在播報稿裡直接說出上述聽眾設定（例如「只做多」「不用槓桿」「上班族」「副業」「保守」「長期定投的投資人」），
-讓內容的角度符合他們即可，不必點名。
-也不要給資產配置或持股建議（例如分散配置、保留現金部位、檢視手中持股、逢低、加碼），只說明要留意的風險、指標與事件。
+金額一律以美元表示，不要換算其他貨幣；素材中標示「（非美元金額）」的地方不要引用金額，只說明事件本身。
+說明影響時，著重「這件事可能牽動哪些風險、指標或後續事件」；不談做空、槓桿、選擇權。
+不要在稿裡提到聽眾的身分或投資習慣，也不要給資產配置或持股建議（例如分散配置、保留現金、檢視持股、逢低、加碼）。
 全文用繁體中文；除了公司名、人名與 AI、Fed、CPI 這類通用縮寫，不要夾雜沒有翻譯的英文單字。"""
 
-_RULES_COMMON = """全程繁體中文口語，不用 Markdown 符號，不用括號。
-只陳述事實與可能的影響，絕對不給買賣建議；不得出現「逢低加碼」「建議觀望」「持續持有」「可以買進」等字眼。
-使用台灣慣用詞：聯準會、升息／降息、盈餘或獲利、營收、財報；數字用口語中文念法，例如「百分之十」。
-只能根據提供的素材，不可補充素材沒有的事實、數字或日期；素材不足時寧可寫短。
+_RULES_COMMON = """【最重要：只能依據素材】
+- 只能使用素材裡明確寫出的事實、數字、日期與因果。素材沒有說的，一律不要寫：
+  不要補充背景、原因、技術指標（例如均線、支撐壓力）、歷史比較、市場預測或你自己知道的資訊。
+- 數字與單位照素材抄寫，用阿拉伯數字，例如「1150億美元」「百分之三點五」可寫成「3.5%」；不要自行換算、四捨五入或改單位。
+- 不要為了拉長篇幅而重複、灌水或加入空泛的評論。素材有多少就講多少，講完就結束，短一點沒有關係。
+- 沒有把握的內容就不要寫。
+【格式】全程繁體中文口語，不用 Markdown 符號，不用括號，不用數字編號列表；段落之間空一行。
+只寫節目主體：不要寫開場白、不要寫風險提醒、不要寫結尾祝福或署名（這些由系統另外加上）。
+絕對不給買賣建議。使用台灣慣用詞：聯準會、升息／降息、盈餘或獲利、營收、財報。
 """ + _AUDIENCE_RULES
 
-SYSTEM_REVIEW = """你是一位專業的台灣財經播客主持人，聲音沉穩、邏輯清晰。
-這是週六的「本週回顧」特別集。素材是本週每天播報稿的全文，請整理成一集約 10 分鐘的回顧。
+SYSTEM = """你是一位專業的台灣財經播客主持人，聲音沉穩、邏輯清晰。
+請把提供的新聞素材整理成廣播播報稿的主體。
+結構：先用一小段概述今天素材中的主要脈絡，再依主題逐則說明（事實，然後素材中提到的影響或背景），
+用自然口語過渡，例如「首先來看」「接下來」「另一個值得關注的消息是」。
+""" + _RULES_COMMON
 
-格式規定：
-1. 開場白：「各位聽眾朋友好，歡迎收聽美股科技收盤簡報，今天是 {date}，這一集是本週回顧。」
-2. 先用一小段說明本週的整體氣氛，再歸納三到四條主線（例如科技財報、聯準會與利率、能源與油價、產業趨勢），
-   每條主線說清楚：週內發生了什麼、前後怎麼演變、幾件事之間有什麼關聯。
-3. 用「週初」「週中」「週五」這類時間順序串起來；有相互矛盾或出現反轉的消息要特別點出。
-4. 最後一小段整理「本週留下的未解問題」，只能是素材中已經出現、尚未有答案的事，不可自行推測結果。
-5. 結尾：風險提醒（市場波動來自技術面、消息面、機構資金等多重因素，請勿單憑新聞買賣股票，投資需謹慎）
-6. 最後祝福：「祝各位身體健康、投資順利，闔家平安，神愛世人，耶穌愛您，我們下週見！」
-7. 字數 2800–3300 字。
+SYSTEM_HOLIDAY = """你是一位專業的台灣財經播客主持人，聲音沉穩、邏輯清晰。
+今天美股休市，這是一集簡短的休市日簡報。請只挑素材中最重要的幾則（宏觀、政策、財報或產業消息），
+簡明說明各自的事實與素材提到的影響，並可以說明休市期間有哪些消息值得在下個交易日留意。
+開場已經說明今天休市，主體不用再重複。篇幅簡短即可。
+""" + _RULES_COMMON
+
+SYSTEM_REVIEW = """你是一位專業的台灣財經播客主持人，聲音沉穩、邏輯清晰。
+這是週六的「本週回顧」。素材是本週每天播報稿的全文。請整理成回顧的主體：
+先簡述本週整體脈絡，再歸納素材中出現過的幾條主線（例如科技財報、聯準會與利率、能源、產業趨勢），
+說明各主線週內的前後演變與關聯，有反轉或矛盾的消息要點出；
+最後列出「本週留下的未解問題」，只能是素材中已經出現、尚未有答案的事。
+用「週初」「週中」「週五」等時間順序串聯，只能引用素材裡出現過的內容與數字。
 """ + _RULES_COMMON
 
 SYSTEM_PREVIEW = """你是一位專業的台灣財經播客主持人，聲音沉穩、邏輯清晰。
-這是週日的「下週前瞻」特別集。素材是本週播報稿摘要，以及週末最新的新聞標題，請整理成一集約 10 分鐘的前瞻。
-
-格式規定：
-1. 開場白：「各位聽眾朋友好，歡迎收聽美股科技收盤簡報，今天是 {date}，這一集是下週前瞻。」
-2. 先用一小段回顧本週留下的背景，再說「下週要留意的事件」：
-   只列出素材中明確提到的日程（財報公布、經濟數據、聯準會相關活動、重要會議或政策期限等），
-   每項說明它為什麼受關注、市場目前的疑問是什麼。
-3. 素材沒有寫明日期的事，只能說「近期」或「後續」，不可自行推算或補上日期。
-4. 如果素材中能明確列出的日程很少，就如實說「目前公開消息中可確認的日程不多」，再把篇幅放在背景與觀察重點，
-   不要為了湊字數捏造行程。
-5. 結尾：風險提醒（市場波動來自技術面、消息面、機構資金等多重因素，請勿單憑新聞買賣股票，投資需謹慎）
-6. 最後祝福：「祝各位身體健康、投資順利，闔家平安，神愛世人，耶穌愛您，我們下週見！」
-7. 字數 2400–3000 字。
+這是週日的「下週前瞻」。素材是本週播報稿摘要，以及最新的新聞與官方公告標題。請整理成前瞻的主體：
+先簡述本週留下的背景；再說「下週要留意的事件」：只列素材中明確提到的日程（財報、經濟數據、聯準會活動、政策期限等），
+說明它受關注的原因與目前的疑問。素材沒有寫明日期的事只能說「近期」或「後續」，不可自行推算日期。
+如果素材中能確認的日程很少，就如實說「目前公開消息中可確認的日程不多」，講完背景與觀察重點就結束，不要編造行程。
 """ + _RULES_COMMON
 
-SYSTEM = SYSTEM + "\n補充規則：\n" + _AUDIENCE_RULES
-
-MIN_SCRIPT_CHARS = 300          # 低於這個長度視為失敗（被截斷或空回應）
-SOFT_MIN_CHARS = int(os.environ.get("SOFT_MIN_CHARS", "") or 2000)  # 低於這個長度先換下一家，全都太短才收下最長的
-ITEMS_PER_SOURCE = 5            # 每個來源送給 AI 幾則（main.py 的來源清單會讀這個值，自動同步）
+MIN_SCRIPT_CHARS = 150          # 低於這個長度視為失敗（空回應或被截斷）
+SOFT_MIN_CHARS = int(os.environ.get("SOFT_MIN_CHARS", "") or 400)
+ITEMS_PER_SOURCE = 5            # 每個來源送給 AI 幾則（main.py 的來源清單會讀這個值）
 SUMMARY_CHARS = 300             # 每則摘要送多少字
 _RETRY_STATUS = (429, 500, 502, 503, 504)   # 暫時性錯誤：同模型重試一次
 _FATAL_STATUS = (401, 402, 403)             # 金鑰 / 餘額問題：換模型也沒用，直接放棄該提供商
@@ -106,29 +78,35 @@ class ApiError(Exception):
         super().__init__(f"HTTP {status} model={model}: {self.body[:400]}")
 
 
-def _items_block(items: list[dict], date: str, tail: str = "") -> str:
+def ai_view(it: dict) -> tuple[str, str]:
+    """給 AI 看的標題與摘要：優先用已把外幣金額剔除、美元換成中文單位的版本。"""
+    return it.get("ai_title") or it["title"], it.get("ai_summary") if "ai_summary" in it else it.get("summary", "")
+
+
+def _items_block(items: list[dict], date: str, tail: str = "", per_source: int | None = None) -> str:
     groups: dict[str, list] = {}
     for it in items:
         groups.setdefault(it["source"], []).append(it)
-    lines = [f"以下是今天（{date}）的新聞素材{tail}：\n"]
+    lines = [f"以下是新聞素材（美東交易日 {date}）{tail}：\n"]
     for src, its in groups.items():
         lines.append(f"\n【{src}】")
-        for it in its[:ITEMS_PER_SOURCE]:
-            lines.append(f"- {it['title']}")
-            if it.get("summary"):
-                lines.append(f"  {it['summary'][:SUMMARY_CHARS]}")
+        for it in its[: per_source or ITEMS_PER_SOURCE]:
+            t, s = ai_view(it)
+            lines.append(f"- {t}")
+            if s:
+                lines.append(f"  {s[:SUMMARY_CHARS]}")
     return "\n".join(lines)
 
 
 def _build_prompt(items: list[dict], date: str, mode: str = "daily", digest: str = "") -> str:
     if mode == "review":
-        return (SYSTEM_REVIEW.replace("{date}", date)
-                + f"\n\n以下是本週每天的播報稿全文，請整理成本週回顧：\n\n{digest}")
+        return SYSTEM_REVIEW + f"\n\n以下是本週每天的播報稿全文：\n\n{digest}"
     if mode == "preview":
         extra = _items_block(items, date) if items else "（週末沒有抓到新的新聞素材）"
-        return (SYSTEM_PREVIEW.replace("{date}", date)
-                + f"\n\n【本週播報稿摘要】\n{digest}\n\n【週末最新新聞】\n{extra}")
-    return SYSTEM.replace("{date}", date) + "\n\n" + _items_block(items, date, "，請整理成播報稿")
+        return SYSTEM_PREVIEW + f"\n\n【本週播報稿摘要】\n{digest}\n\n【最新新聞與公告】\n{extra}"
+    if mode == "holiday":
+        return SYSTEM_HOLIDAY + "\n\n" + _items_block(items, date, "", per_source=3)
+    return SYSTEM + "\n\n" + _items_block(items, date)
 
 
 # ── 共用：依序嘗試候選模型 ─────────────────────────────────────────────
@@ -158,6 +136,7 @@ def _run_candidates(name: str, candidates: list[str], call) -> str:
                 break
             if text:
                 log.info(f"   ✓ {name} 使用模型: {model}")
+                LAST_MODEL[name.lower()] = model
                 return text
             errors.append(f"{model}: empty")
             log.warning(f"   {name} {model}: 回應內容為空（可能被截斷或被安全機制擋下）")
@@ -431,65 +410,26 @@ def _providers() -> list[tuple]:
     return out
 
 
-def build_script(items: list[dict], date: str, mode: str = "daily", digest: str = "") -> str:
-    if mode == "daily" and not items:
-        log.warning("   無新聞素材，生成預設播報稿")
-        return (
-            f"各位聽眾朋友好，歡迎收聽美股科技收盤簡報，今天是{date}。"
-            "由於今日數據抓取異常，暫無詳細新聞播報，請稍後查看文字版。"
-            "祝各位身體健康，闔家平安，神愛世人，耶穌愛您，我們明天見！"
-        )
-
+def build_body(items: list[dict], date: str, mode: str = "daily", digest: str = "") -> str:
+    """只回傳節目主體（不含開場與結尾）。沒有素材時回傳空字串，由 episode.py 決定怎麼辦。"""
+    if mode in ("daily", "holiday") and not items:
+        return ""
     prompt = _build_prompt(items, date, mode, digest)
     log.info(f"   模式：{mode}；提示詞約 {len(prompt)} 字")
-    text = _run_chain(prompt)
-    target = 2300 if mode == "preview" else None
-    return ensure_length(text, prompt, target)
-
-
-LENGTH_TARGET = int(os.environ.get("LENGTH_TARGET", "") or 2600)   # 低於這個字數會自動擴寫一次（約 8.5 分鐘）
-CLOSING_MARK = "神愛世人"                                              # 擴寫後必須還在，確保結尾祝福沒被吃掉
-
-
-def ensure_length(text: str, source_prompt: str, target: int | None = None) -> str:
-    """稿子偏短時，請 AI 在不新增事實的前提下擴寫一次；失敗或品質不對就沿用原稿。"""
-    target = target or LENGTH_TARGET
-    if len(text) >= target:
-        return text
-    log.warning(f"   稿子只有 {len(text)} 字，低於目標 {target}，嘗試擴寫一次")
-    prompt = (
-        f"以下是一份已經寫好的廣播播報稿（目前 {len(text)} 字）。請在不新增任何事實的前提下，把它擴寫到至少 {target + 300} 字。\n"
-        "擴寫規則：\n"
-        "- 可以多說明名詞與機制（例如資本支出是什麼、為什麼資料中心需要儲能）、事件之間的因果、背景脈絡，"
-        "以及這件事可能牽動的風險、指標與後續事件；\n"
-        "- 絕對不可新增素材裡沒有的具體事件、數字、日期或公司動態；\n"
-        "- 保留開場白、風險提醒、身心健康提醒與最後祝福的原句與位置；各段都要擴寫，不要重複同樣的話；\n"
-        "- 仍然全程繁體中文口語，不用 Markdown 符號；遵守原稿提示詞的所有規則。\n\n"
-        f"【原始提示詞與素材（供核對事實用）】\n{source_prompt[:14000]}\n\n【待擴寫的稿子】\n{text}"
-    )
-    try:
-        longer = _run_chain(prompt)
-    except Exception as ex:
-        log.warning(f"   擴寫失敗，沿用原稿：{str(ex)[:150]}")
-        return text
-    longer = re.sub(r"\*{1,2}(.+?)\*{1,2}", r"\1", longer)
-    longer = re.sub(r"#{1,4}\s*", "", longer)
-    if len(longer) >= len(text) + 300 and CLOSING_MARK in longer:
-        log.info(f"   ✓ 擴寫完成：{len(text)} → {len(longer)} 字")
-        return longer
-    log.warning(f"   擴寫結果不合格（{len(longer)} 字，結尾祝福{'在' if CLOSING_MARK in longer else '不見了'}），沿用原稿")
-    return text
+    return _run_chain(prompt)
 
 
 def _run_chain(prompt: str) -> str:
     """依提供商順序降級，直到拿到夠長的稿。兩階段流程的「統稿」也用這個。"""
-    providers = _providers()
-    have = [n for n, _, k in providers if os.environ.get(k)]
-    log.info(f"   提供商順序: {[n for n, _, _ in providers]}；已設定 Key: {have}")
+    order = [x.strip().lower() for x in os.environ.get("PROVIDER_ORDER", DEFAULT_ORDER).split(",") if x.strip()]
+    order = [k for k in order if k in _REGISTRY]
+    have = [k for k in order if os.environ.get(_REGISTRY[k][2])]
+    log.info(f"   提供商順序: {order}；已設定 Key: {have}")
     tried: list[str] = []
-    best = ""                               # 太短但可用的備案
+    best, best_key = "", ""                 # 太短但可用的備案
 
-    for name, fn, env_key in providers:
+    for key in order:
+        name, fn, env_key = _REGISTRY[key]
         if not os.environ.get(env_key):
             log.warning(f"   {name}: 未設定 {env_key}，跳過")
             continue
@@ -497,18 +437,17 @@ def _run_chain(prompt: str) -> str:
         try:
             log.info(f"   嘗試 {name}...")
             text = fn(prompt)
-            # 清理殘留 Markdown 符號
             text = re.sub(r"\*{1,2}(.+?)\*{1,2}", r"\1", text)
             text = re.sub(r"#{1,4}\s*", "", text)
             if len(text) < MIN_SCRIPT_CHARS:
                 raise RuntimeError(f"回傳內容過短（{len(text)} 字），視為失敗")
             if len(text) < SOFT_MIN_CHARS:
-                log.warning(f"   {name} 只有 {len(text)} 字（目標至少 {SOFT_MIN_CHARS}），先換下一家，"
-                            "全部都太短時才使用最長的一份")
+                log.warning(f"   {name} 只有 {len(text)} 字（低於 {SOFT_MIN_CHARS}），先換下一家，全部都太短才用最長的")
                 if len(text) > len(best):
-                    best = text
+                    best, best_key = text, key
                 continue
             log.info(f"   ✓ {name} 完成，{len(text)} 字")
+            LAST_WINNER["provider"] = key
             return text
         except Exception as ex:
             log.warning(f"   {name} 失敗: {ex}")
@@ -516,6 +455,6 @@ def _run_chain(prompt: str) -> str:
 
     if best:
         log.warning(f"   沒有提供商達到 {SOFT_MIN_CHARS} 字，改用最長的一份（{len(best)} 字）")
+        LAST_WINNER["provider"] = best_key
         return best
-    raise RuntimeError(
-        f"所有 AI 提供商均失敗（已嘗試: {tried or '無，請檢查 API Key 設定'}）")
+    raise RuntimeError(f"所有 AI 提供商均失敗（已嘗試: {tried or '無，請檢查 API Key 設定'}）")
