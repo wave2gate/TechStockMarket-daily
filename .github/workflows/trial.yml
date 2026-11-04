@@ -3,12 +3,15 @@ name: AI Trial (no publish)
 on:
   workflow_dispatch:
     inputs:
-      providers:
-        description: "要測的項目，逗號分隔：pipeline（兩階段）、gemini、groq、cloudflare"
-        default: "pipeline"
       mode:
-        description: "模式：daily / review / preview；留空＝依今天的星期自動判斷"
+        description: "模式：auto（依時間判斷）/ daily / holiday / review / preview"
+        default: "auto"
+      fake_now:
+        description: "假裝現在的 UTC 時間，例如 2026-11-06T22:00:00（測週末或休市日用；留空＝現在）"
         default: ""
+      audit:
+        description: "AI 審稿：1 開 / 0 關"
+        default: "1"
 
 permissions:
   contents: read
@@ -21,14 +24,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install feedparser requests
-      - name: 試跑（只測 AI，不發布）
+      - run: pip install feedparser requests tzdata
+      - name: 試跑（完整流程，不做語音、不發布）
         run: cd scripts && python trial.py
         env:
-          TRIAL_PROVIDERS:       ${{ inputs.providers }}
-          EPISODE_MODE:          ${{ inputs.mode }}
+          EPISODE_MODE:          ${{ inputs.mode != 'auto' && inputs.mode || '' }}
+          FAKE_NOW:              ${{ inputs.fake_now }}
+          AUDIT:                 ${{ inputs.audit }}
           R2_PUBLIC_URL:         ${{ secrets.R2_PUBLIC_URL }}
           GEMINI_API_KEY:        ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY:          ${{ secrets.GROQ_API_KEY }}
           CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          OPENROUTER_API_KEY:    ${{ secrets.OPENROUTER_API_KEY }}
+          DEEPSEEK_API_KEY:      ${{ secrets.DEEPSEEK_API_KEY }}
