@@ -5,7 +5,35 @@
 ② 在本檔最上方新增一段 ③ 一起 commit。
 Actions 日誌第一行會印出「版本：main x | analyzer x | publish x」，用來確認跑的是新程式碼；
 出現 `?` 代表那個檔案還是舊版（沒有 `__version__`）。
-各檔案目前版本：main 1.5.0（未改動）／ publish 1.2.1（未改動）／ analyzer 1.5.1 ／ weekly 1.5.1 ／ pipeline 1.5.1 ／ fetcher 1.5.1 ／ trial 1.5.1。
+各檔案目前版本：全部 1.6.0（publish.py 1.2.1、r2.py、tts.py 未改動）。
+
+---
+
+## [1.6.0] — 2026-11-04　杜絕幻覺、準時發布、休市日照發、官方來源
+**回溯方式見 `ROLLBACK.md`（v1.5.1 完整備份 zip 已另存；GitHub 也請在上傳後打 v1.6.0 標籤）。**
+### 核心原則
+- **不湊字數**：刪除 `ensure_length` 擴寫（它曾編出「20日均線死叉」）；提示詞不再有字數目標，素材有多少講多少。
+- **AI 只寫主體**：開場、風險提醒、健康提醒、AI 署名、結尾祝福全由程式寫（`frame.py`），署名反映這一集實際用了哪些模型。
+### 防幻覺四道關
+1. 程式先把英文金額換成中文單位（`$115 billion` → `1150億美元`），非美元金額改標「（非美元金額）」（`numcheck.py`）。
+2. 筆記階段：背景／影響欄「素材沒寫就填無」；來源欄由程式對回真正的媒體。
+3. 成稿後程式逐句核對數字（金額、百分比、大數字必須在素材中找得到），找不到的句子**刪除**。
+4. 另一家 AI（優先不是寫稿那家）對照筆記審稿，標出無依據的句子，**刪除**（不請 AI 改寫）；標記超過 40% 視為審稿員不可靠，不採用。
+- 保底：清理後太短或 AI 全失敗 → 用程式把筆記直接組成稿（不經 AI 撰寫）；連筆記都沒有 → 一段誠實的短版。
+### 發布時間與時區（`market.py`）
+- 集數以「美東交易日」為單位（slot）；Worker 準時觸發與 GitHub 延遲排程共用同一個 guid，不會重複。
+- 開場報三地時間（美東／西岸／台北），自動處理夏令冬令；收盤後一小時（美東 17:00）發布，盤後時段會提醒數字可能變動。
+- 平日休市日（硬編 2026–2027 NYSE 假日與提早收盤日）→ 發「休市簡報」（短版）；週六回顧、週日前瞻照舊。
+### 來源
+- 新增：Federal Reserve、BLS、Nasdaq、Mobile World Live、Utility Dive、Electrek；Google News RSS 當 WSJ／RCR／Telecoms／SDxCentral／Investopedia／Yahoo 的標題備援。
+- 修正：備用來源的條目**併入**而非取代官方源條目；試跑診斷新增「最新一則時間」。
+### 新增檔案
+`market.py` `numcheck.py` `frame.py` `guard.py` `episode.py` `worker/worker.js` `worker/wrangler.toml` `ROLLBACK.md`
+### 開關
+`TWO_STAGE=0` 關兩階段；`AUDIT=0` 關 AI 審稿；`EPISODE_MODE=` 強制模式；`MIN_BODY_CHARS`（預設 500）。
+### 已知限制
+- 假日表為硬編，每年請對照 nyse.com 核對。新增 RSS 網址未驗證，以試跑「來源診斷」為準。
+- Groq 免費層審稿若超過每分鐘額度會自動換下一家。
 
 ---
 
