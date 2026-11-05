@@ -22,7 +22,7 @@ def _clean(text: str) -> str:
 async def to_mp3(script: str, out_path: str) -> int:
     """
     生成 MP3，返回估計時長（秒）。
-    Edge TTS 不直接給時長，用字數估算（繁中約 200字/分鐘）。
+    Edge TTS 不直接給時長，用字數估算（實測台灣女聲約 280 字/分鐘）。
     """
     clean = _clean(script)
     comm  = edge_tts.Communicate(clean, voice=VOICE, rate=RATE, volume=VOLUME)
@@ -30,6 +30,6 @@ async def to_mp3(script: str, out_path: str) -> int:
 
     size_kb  = Path(out_path).stat().st_size // 1024
     char_cnt = len(clean)
-    duration = int(char_cnt / 200 * 60)   # 估算秒數
+    duration = int(char_cnt / 280 * 60)   # 估算秒數
     log.info(f"   TTS: {char_cnt} 字 → {size_kb} KB，估算 {duration//60}分{duration%60}秒")
     return duration

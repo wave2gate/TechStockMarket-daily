@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
 
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 
 # 讓 analyzer.py 的 log.info 也會顯示在 GitHub Actions 日誌
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -308,7 +308,7 @@ async def main():
     now      = datetime.now(timezone.utc)
     slot     = market.slot_date(now)
     date_str = slot.strftime("%Y%m%d")
-    disp     = market.date_zh(slot)
+    disp     = f"{slot.year}年{slot.month}月{slot.day}日"      # 標題沿用「2026年11月3日」格式，與舊集數一致
     base_url = os.environ["R2_PUBLIC_URL"].rstrip("/")
     mp3_key  = f"ep_{date_str}.mp3"
     episode_url = f"{base_url}/{mp3_key}"
