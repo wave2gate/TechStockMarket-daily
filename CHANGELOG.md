@@ -5,7 +5,32 @@
 ② 在本檔最上方新增一段 ③ 一起 commit。
 Actions 日誌第一行會印出「版本：main x | analyzer x | publish x」，用來確認跑的是新程式碼；
 出現 `?` 代表那個檔案還是舊版（沒有 `__version__`）。
-各檔案目前版本：全部 1.6.0，其中 pipeline／analyzer／numcheck 為 1.7.0、fetcher／trial 為 1.6.1（publish.py 1.2.1、r2.py、tts.py 未改動）。
+各檔案目前版本：main／pipeline／fetcher／episode／topics 為 1.8.0、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
+
+---
+
+## [1.8.0] — 2026-11-05　新聞分類、專題來源、R2 統計表（步驟①）
+**依據讀者分析：積極型（AI／半導體／記憶體 HBM／太空與 6G、NGN）與保守長期型（電力電網／儲能／數據中心供電／油氣／電信供應鏈）。**
+### 新增
+- **`topics.py` 新聞分類**：用關鍵詞把每則新聞歸到 17 個細項（共通 3、AI 與半導體 4、太空與下一代通訊 3、電力與電網 4、油氣 1、電信 2）。由程式決定，不用 AI。
+  關鍵詞表與 `WATCHLIST`（關注公司優先清單，目前留空，之後由你提供）都在這個檔案裡，可直接改。
+- **新來源**（網址均未驗證，以試跑診斷為準）：Semiconductor Engineering、EE Times、SpaceNews、Via Satellite、POWER Magazine、Canary Media、Data Center Dynamics、EIA Today in Energy、OilPrice.com、Rigzone；
+  另有 10 組 Google News 主題搜尋（記憶體／HBM、AI 晶片、晶圓製造、變壓器與電網設備、數據中心供電、油氣、6G／NGN、衛星、電信運營商、電信設備），只用標題。
+  同一則新聞被多個來源收錄時自動去重。
+- **R2 全文頁與說明欄的統計表**：每個細項「本集涵蓋幾則／今天抓到幾則」。涵蓋數由程式比對成稿（專有名詞與數字），只算真的進了稿子的，不口播。
+- 試跑 Summary 新增：統計表、每則筆記是否進入成稿、各細項抓到的標題。
+### 變更
+- 筆記改為六組、依分類（不再依媒體）：大盤宏觀／AI 與半導體／太空與下一代通訊／電力與電網／油氣／電信，分配給 Gemini／Groq／Cloudflare；
+  每組依來源輪流取素材，避免被單一來源佔滿；Groq 連續呼叫間隔 20 秒（免費層每分鐘額度）。
+- 統稿提示詞：依固定主題順序、每則筆記都要提到、不說讀者標籤。審稿改用精簡版筆記（省 token）。
+- 目標長度約 8 分鐘：靠增加新聞則數，不靠擴寫（約 27 則筆記）。
+### 修正
+- 備用網址的時間窗以前誤用預設 30 小時（`(alt1)` 後綴沒被辨識），現在正確套用各來源的時間窗。
+- 摘要中的 HTML 標籤會被去除。
+### 更動檔案
+`topics.py`（新）`fetcher.py` `pipeline.py` `episode.py` `main.py` `trial.py` `CHANGELOG.md`
+### 回溯
+把這 7 個檔案換回 1.7.1 版（`topics.py` 可保留不用刪），或照 `ROLLBACK.md`。
 
 ---
 
