@@ -1,13 +1,13 @@
 """
-數字處理（v1.6.0）：兩件事都由程式做，不交給 AI
-  1. normalize_amounts()  送進 AI 前，把英文金額換成中文單位（$115 billion → 1150億美元（原文$115 billion））；
+數字處理（v1.7.0）：兩件事都由程式做，不交給 AI
+  1. normalize_amounts()  送進 AI 前，美元金額改成「115 billion 美元」（保留英文單位，不換算成萬／億，避免換算出錯）；
                           非美元金額一律改成「（非美元金額）」，不讓 AI 看到也不用換算。
   2. check_sentences()    成稿後，逐句抓出金額、百分比與大數字，必須能在素材裡找到對應的值，找不到就標記。
 v1.5.1 試跑曾出現「$115 billion 念成一百十五億」「$984 million 念成九千八百萬」，這支就是為了擋這類錯誤。
 """
 import re
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 _MAG_EN = {"trillion": 1e12, "tn": 1e12, "billion": 1e9, "bn": 1e9, "million": 1e6, "mn": 1e6, "thousand": 1e3}
 _MAG_SHORT = {"T": 1e12, "B": 1e9, "M": 1e6, "K": 1e3}
@@ -46,12 +46,12 @@ def normalize_amounts(text: str) -> str:
         text = pat.sub("（非美元金額）", text)
 
     def usd(m: re.Match) -> str:
-        v = float(m.group(1).replace(",", ""))
+        word = ""
         if m.group(2):
-            v *= _MAG_EN[m.group(2).lower()]
+            word = {"tn": "trillion", "bn": "billion", "mn": "million"}.get(m.group(2).lower(), m.group(2).lower())
         elif m.group(3):
-            v *= _MAG_SHORT[m.group(3)]
-        return f"{_fmt_zh(v)}美元（原文{m.group(0).strip()}）"
+            word = {"T": "trillion", "B": "billion", "M": "million", "K": "thousand"}[m.group(3)]
+        return f"{m.group(1)} {word} 美元" if word else f"{m.group(1)} 美元"
 
     return _USD.sub(usd, text)
 
@@ -113,6 +113,7 @@ def cn2num(s: str) -> float | None:
 
 _PCT_CN = re.compile(rf"百分之([{_CN_CHARS}]+|\d+(?:\.\d+)?)")
 _ARABIC = re.compile(rf"(?<![A-Za-z\d.,])(\d[\d,]*(?:\.\d+)?)\s?(%|％|兆|億|萬|千|{_MAGW}\b)?")
+_COMPOSITE = re.compile(r"(?<![A-Za-z\d.,])(?:\d[\d,]*(?:\.\d+)?[兆億萬]\s?){2,3}")
 _CN_NUM = re.compile(rf"[{_CN_CHARS}]+(?:\s?(%|％))?")
 
 
@@ -124,6 +125,12 @@ def _tokens(text: str) -> list[dict]:
         v = float(g) if re.fullmatch(r"\d+(?:\.\d+)?", g) else cn2num(g)
         if v is not None:
             toks.append({"raw": m.group(0), "val": v, "kind": "pct", "start": m.start(), "end": m.end(), "unit": True})
+        for i in range(m.start(), m.end()):
+            mask[i] = True
+    for m in _COMPOSITE.finditer(text):            # 『4億9000萬』『1億3700萬』：合起來才是一個數字
+        parts = re.findall(r"(\d[\d,]*(?:\.\d+)?)([兆億萬])", m.group(0))
+        v = sum(float(n.replace(",", "")) * {"兆": 1e12, "億": 1e8, "萬": 1e4}[u] for n, u in parts)
+        toks.append({"raw": m.group(0).strip(), "val": v, "kind": "num", "start": m.start(), "end": m.end(), "unit": True})
         for i in range(m.start(), m.end()):
             mask[i] = True
     for m in _ARABIC.finditer(text):
@@ -145,6 +152,8 @@ def _tokens(text: str) -> list[dict]:
             continue
         s = m.group(0)
         pct = bool(m.group(1))
+        if m.start() > 0 and text[m.start() - 1] in "數幾多":      # 『數十億』『幾百萬』是概數，不檢查
+            continue
         core = re.sub(r"\s?(%|％)$", "", s)
         if core and all(c in "百千萬億兆" for c in core):      # 『百萬』『千萬』（如『數百萬』）不精確，不檢查
             continue
