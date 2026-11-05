@@ -12,7 +12,7 @@ import os, time, logging
 from datetime import datetime, timezone
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
-import analyzer, pipeline, fetcher, market, numcheck, episode
+import analyzer, pipeline, fetcher, market, numcheck, episode, topics
 from weekly import gather_digest
 
 
@@ -29,7 +29,7 @@ def main():
         if n_eps < 1:
             print("讀不到本週播報稿（試跑環境可能沒設 R2_PUBLIC_URL），改測 holiday 模式")
             mode, digest = "holiday", ""
-    items = [] if mode == "review" else numcheck.prepare_items(fetcher.fetch_all())
+    items = [] if mode == "review" else topics.tag_items(numcheck.prepare_items(fetcher.fetch_all()))
     counts: dict[str, int] = {}
     for it in items:
         counts[it["source"]] = counts.get(it["source"], 0) + 1
@@ -63,6 +63,15 @@ def main():
             out += [f"- 【數字】{x['sentence']}（{x['numbers']}）" for x in rep.get("num_removed", [])]
             out += [f"- 【審稿員】{x['sentence']}" for x in rep.get("ai_removed", [])]
         out += ["", "## 完整稿件（朗讀內容）", "", r["script"]]
+    if r and r.get("stats"):
+        out += ["", r["stats"]["md"]]
+        out += ["", "## 每則筆記是否進入成稿", ""] + [
+            f"- {'✅' if c['covered'] else '❌'} [{c['bucket']}] ({c['source']}) {c['fact'][:110]}" for c in r["cov_rows"]]
+    out += ["", "## 抓到的新聞分類結果（每個細項的標題）", ""]
+    for k in topics.PRIORITY:
+        ts = [it for it in items if it.get("bucket") == k]
+        if ts:
+            out.append(f"- **{k} {topics.NAMES[k]}**（{len(ts)}）：" + " ｜ ".join(f"{it['title'][:60]}（{it['source'].replace('Google News｜','GN:')}）" for it in ts[:6]))
     out += ["", "## 各來源抓到幾則", "", "| 來源 | 則數 |", "|---|---|"]
     out += [f"| {lab} | {counts.get(lab, 0)} |" for lab, _ in fetcher.SOURCES]
     out += ["", "## 來源診斷", "", "| 來源 | HTTP | 條目 | 時間窗內 | 最新一則 | 錯誤 |", "|---|---|---|---|---|---|"]

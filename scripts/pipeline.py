@@ -1,36 +1,41 @@
 """
-兩階段日更（v1.6.0）
+兩階段日更（v1.8.0）
 
-第一階段「素材筆記」：依額度與能力把來源分三組，各交給一個 AI 挑重點、寫成固定格式的短筆記。
-    大盤、宏觀與財報 → Gemini；科技、AI 與通訊網路 → Groq；能源與儲能 → Cloudflare（只做英文短筆記）
-    某組 AI 失敗，改由 Gemini 補做；Gemini 也失敗就略過那組。
-第二階段「統稿」：把筆記交給提供商鏈，寫成節目主體（不含開場／結尾；不設字數目標）。
-build_daily 回傳 (主體, 各組實際使用情形, 筆記文字, 筆記資料)，供 guard / frame 使用。
-任何環節整體失敗 → 丟例外，由 episode.py 退回舊流程或保底稿。
+第一階段「素材筆記」：新聞先由程式（topics.py）依關鍵詞分到細項，再把細項併成六個「筆記組」，
+各交給一個 AI 挑重點、寫成固定格式的短筆記（依額度與能力分配）：
+    大盤宏觀財報政策 → Gemini；AI 與半導體 → Groq；太空與下一代通訊 → Cloudflare（英文短筆記）
+    電力與電網 → Gemini；油氣 → Cloudflare（英文短筆記）；電信 → Groq
+    某組 AI 失敗，改由另一家補做（Groq 組補 Gemini，Gemini 組補 Groq）。
+第二階段「統稿」：把筆記交給提供商鏈寫成節目主體（不含開場／結尾；不設字數目標）。
+build_daily 回傳 dict：body、groups、notes_text、notes_compact、groups_notes（保底稿）、notes_all（統計用）、writer。
 環境變數 TWO_STAGE=0 可關閉。
 """
 import logging, os, re, time
 
 import analyzer as A
+import topics as T
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 log = logging.getLogger(__name__)
 
+# feed＝每組最多送給 AI 幾則素材（依來源輪流取，關注公司優先）；pick＝AI 挑出幾則筆記
 GROUPS = [
-    {"key": "macro", "name": "大盤、宏觀與財報", "provider": "gemini", "pick": 10,
-     "per_source": 5, "max_out": 3200, "lang": "zh",
-     "sources": ["Federal Reserve", "BLS", "WSJ Markets", "CNBC", "Bloomberg Markets", "Yahoo Finance",
-                 "MarketWatch", "Investing.com", "Nasdaq", "Financial Times", "Benzinga", "Investopedia",
-                 "Seeking Alpha"]},
-    {"key": "tech", "name": "科技、AI 與通訊網路", "provider": "groq", "pick": 8,
-     "per_source": 5, "max_out": 2200, "lang": "zh",
-     "sources": ["TechCrunch", "RCR Wireless", "Telecoms.com", "FierceWireless", "Light Reading",
-                 "SDxCentral", "Mobile World Live"]},
-    {"key": "energy", "name": "能源與儲能", "provider": "cloudflare", "pick": 5,
-     "per_source": 6, "max_out": 1400, "lang": "en",
-     "sources": ["Energy Storage News", "Bloomberg NEF", "Utility Dive", "Electrek"]},
+    {"key": "macro", "name": "大盤、宏觀、財報與政策", "buckets": ["C1", "C2", "C3"], "provider": "gemini",
+     "pick": 5, "feed": 14, "max_out": 2400, "lang": "zh"},
+    {"key": "ai", "name": "AI 與半導體（晶片、記憶體、製造、雲端資本支出）", "buckets": ["A1", "A2", "A3", "A4"], "provider": "groq",
+     "pick": 6, "feed": 14, "max_out": 2400, "lang": "zh"},
+    {"key": "space", "name": "太空與下一代通訊（衛星、6G、NGN、光通訊）", "buckets": ["A5", "A6", "A7"], "provider": "cloudflare",
+     "pick": 3, "feed": 10, "max_out": 1400, "lang": "en"},
+    {"key": "power", "name": "電力與電網（發電、輸配電設備、儲能、數據中心供電）", "buckets": ["B1", "B2", "B3", "B4"], "provider": "gemini",
+     "pick": 6, "feed": 14, "max_out": 2400, "lang": "zh"},
+    {"key": "oil", "name": "油氣與油價", "buckets": ["B5"], "provider": "cloudflare",
+     "pick": 3, "feed": 8, "max_out": 1200, "lang": "en"},
+    {"key": "telecom", "name": "電信運營商與供應鏈", "buckets": ["B6", "B7"], "provider": "groq",
+     "pick": 4, "feed": 10, "max_out": 1800, "lang": "zh"},
 ]
-MIN_GROUPS = 2
+MIN_GROUPS = 3
+_GAP = {"groq": 20}            # 同一家連續呼叫之間至少間隔幾秒（Groq 免費層每分鐘 token 有限）
+_last_call: dict[str, float] = {}
 
 NOTE_RULES_ZH = """你是財經資料編輯。下面是「{name}」的新聞素材。
 請挑出對美股、科技產業最有影響力的 {pick} 則，依重要度由高到低排列。
@@ -41,7 +46,7 @@ NOTE_RULES_ZH = """你是財經資料編輯。下面是「{name}」的新聞素�
 - 「事實」：一句話，只寫素材明確寫出的內容；數字、單位與專有名詞照素材抄寫，用阿拉伯數字。
 - 「背景」：只寫素材中明確寫出的背景或原因；素材沒有寫就填「無」，絕對不要用你自己的知識補充。
 - 「可能的影響」：只寫素材中提到的影響或市場反應；素材沒有寫就填「無」，不要自行推測。
-- 不要補充素材沒有的事實、數字、日期；同一事件只算一則；與美股、科技、宏觀、通訊、儲能無關的略過。
+- 不要補充素材沒有的事實、數字、日期；同一事件只算一則；與美股、科技、宏觀、電力能源、油氣、太空、通訊無關的略過。
 - 金額照素材的美元寫法（保留 million／billion 英文單位）；標示「（非美元金額）」的不要引用金額。
 - 公司名與人名保留英文原名，不要翻譯。
 - 語氣中立克制，不預測漲跌，不給買賣建議。"""
@@ -55,58 +60,67 @@ Rules:
 - Fact: one sentence using ONLY what the item says; copy numbers and names exactly.
 - Background: only if the item itself states it; otherwise write "none". Never add outside knowledge.
 - Possible impact: only if the item itself states it; otherwise write "none". Never speculate.
-- One line per event. Skip items unrelated to US stocks, tech, macro, telecom or energy storage.
+- One line per event. Skip items unrelated to US stocks, tech, macro, power/energy, oil & gas, space or telecom.
 - Keep amounts exactly as written in the item (US dollars). Skip amounts marked （非美元金額）.
 - Neutral tone; no price predictions; no buy/sell advice."""
 
 SYSTEM_COMPOSE = """你是一位專業的台灣財經播客主持人，聲音沉穩、邏輯清晰。
-下面是編輯整理好的新聞筆記。請把它們寫成廣播播報稿的主體。
-結構：先用一小段（兩到四句）概述今天筆記裡的主要脈絡；再依主題逐則說明——
-美股與科技、宏觀與利率、通訊與網路、能源與儲能；某一類沒有筆記就整段略過。
-每則先說事實，再說筆記中的背景與可能影響，用自然的句子帶出；筆記寫「無」或 none 的欄位就不要講，不要自己補。
+下面是編輯整理好的新聞筆記，分成幾個主題。請把它們寫成廣播播報稿的主體。
+結構：先用一小段（兩到四句）概述今天筆記裡的主要脈絡；再依下面的主題順序逐段說明，沒有筆記的主題整段略過：
+大盤宏觀財報政策 → AI 與半導體 → 太空與下一代通訊 → 電力與電網 → 油氣與油價 → 電信運營商與供應鏈。
+每一則筆記都要提到（同一事件的多條筆記可合併成一則），不要遺漏；每則先說事實，再說筆記中的背景與可能影響，用自然的句子帶出。
+筆記寫「無」或 none 的欄位就不要講，不要自己補。不要說「積極」「保守」這類讀者標籤。
 絕對不要照抄筆記的欄位名稱（例如「事實」「背景」「影響為」「可能影響」），也不要把同一件事用不同說法重複講兩次。
-重要度高的先講，同一事件的多條筆記合併。用自然口語過渡，例如「首先來看」「接下來」「另一個值得關注的消息是」。
+重要度高的先講。用自然口語過渡，例如「首先來看」「接下來」「另一個值得關注的消息是」。
 英文筆記請翻成台灣慣用的繁體中文；公司名與人名保留英文原名，金額保留 million／billion／trillion 英文單位，不要換算成萬、億。
 筆記有多少就講多少，每則的長短由筆記內容決定，不要為了拉長而灌水。
 """ + A._RULES_COMMON
 
 
 def _group_block(items: list[dict], g: dict) -> tuple[str, int, list[dict]]:
-    lines, n, used = [], 0, []
-    for src in g["sources"]:
-        its = [it for it in items if it.get("source", "").startswith(src)][: g["per_source"]]
-        if not its:
-            continue
-        lines.append(f"\n【{src}】")
-        for it in its:
-            n += 1
-            used.append(it)
-            t, s = A.ai_view(it)
-            lines.append(f"- {t}")
-            if s:
-                lines.append(f"  {s[:A.SUMMARY_CHARS]}")
-    return "\n".join(lines), n, used
+    pool = [it for it in items if it.get("bucket") in g["buckets"]]
+    by_src: dict[str, list] = {}
+    for it in sorted(pool, key=lambda x: not x.get("watch")):       # 關注公司優先
+        by_src.setdefault(it.get("source", ""), []).append(it)
+    chosen: list[dict] = []
+    i = 0
+    while len(chosen) < g["feed"] and any(len(v) > i for v in by_src.values()):   # 依來源輪流取，避免被單一來源佔滿
+        for v in by_src.values():
+            if len(v) > i and len(chosen) < g["feed"]:
+                chosen.append(v[i])
+        i += 1
+    lines, cur = [], None
+    for it in sorted(chosen, key=lambda x: x.get("source", "")):
+        if it["source"] != cur:
+            cur = it["source"]
+            lines.append(f"\n【{cur}】")
+        t, sm = A.ai_view(it)
+        lines.append(f"- {t}")
+        if sm:
+            lines.append(f"  {sm[:A.SUMMARY_CHARS]}")
+    return "\n".join(lines), len(chosen), chosen
 
 
 def _tok(s: str) -> set[str]:
     return {w.lower() for w in re.findall(r"[A-Za-z][A-Za-z0-9\.\-]{2,}|\d[\d,\.]*", s)}
 
 
-def _fix_source(row: dict, used: list[dict]) -> dict:
-    """AI 常把公司名填進來源欄；用事實與標題的字詞重疊，對回真正的來源媒體。"""
-    names = {it["source"] for it in used}
-    if row["source"] in names or any(row["source"].startswith(n) or n.startswith(row["source"]) for n in names):
-        return row
+def _fix_source(row: dict, used: list[dict], default_bucket: str) -> dict:
+    """AI 常把公司名填進來源欄；用事實與標題的字詞重疊，對回真正的來源媒體與細項。"""
     ft, best, bs = _tok(row["fact"]), None, 0
     for it in used:
         sc = len(ft & _tok(it["title"] + " " + (it.get("summary") or "")[:200]))
         if sc > bs:
             best, bs = it, sc
-    row["source"] = best["source"] if best and bs else ""
+    names = {it["source"] for it in used}
+    ok = row["source"] in names or any(row["source"].startswith(n) or n.startswith(row["source"]) for n in names)
+    if not ok:
+        row["source"] = best["source"] if best and bs else ""
+    row["bucket"] = best["bucket"] if best and bs else default_bucket
     return row
 
 
-def _parse_notes(text: str, pick: int, used: list[dict] | None = None) -> list[dict]:
+def _parse_notes(text: str, pick: int, used: list[dict] | None = None, default_bucket: str = "C1") -> list[dict]:
     rows = []
     for line in text.splitlines():
         line = re.sub(r"^[\s\-\*•\d\.\)、]+", "", line.strip())
@@ -120,8 +134,8 @@ def _parse_notes(text: str, pick: int, used: list[dict] | None = None) -> list[d
         row = {"source": parts[0][:40], "fact": parts[1],
                "background": "無" if none(parts[2]) else parts[2],
                "impact": "無" if none(parts[3]) else parts[3],
-               "score": int(m.group()) if m else 3}
-        rows.append(_fix_source(row, used) if used else row)
+               "score": int(m.group()) if m else 3, "bucket": default_bucket}
+        rows.append(_fix_source(row, used or [], default_bucket))
     rows.sort(key=lambda r: -r["score"])
     return rows[:pick]
 
@@ -133,7 +147,15 @@ def _call(provider: str, prompt: str, max_out: int) -> str:
             raise ValueError("Cloudflare 未設定")
     elif not os.environ.get(env_key):
         raise ValueError(f"{env_key} 未設定")
-    return fn(prompt, max_out)
+    gap = _GAP.get(provider, 0)
+    wait = gap - (time.time() - _last_call.get(provider, 0))
+    if wait > 0:
+        log.info(f"   等 {wait:.0f} 秒再呼叫 {provider}（避免超過每分鐘額度）")
+        time.sleep(wait)
+    try:
+        return fn(prompt, max_out)
+    finally:
+        _last_call[provider] = time.time()
 
 
 def _notes_for_group(items: list[dict], g: dict, trace: list) -> tuple[list[dict], str, str]:
@@ -145,8 +167,8 @@ def _notes_for_group(items: list[dict], g: dict, trace: list) -> tuple[list[dict
         return [], "", ""
     rules = (NOTE_RULES_EN if g["lang"] == "en" else NOTE_RULES_ZH).format(name=g["name"], pick=g["pick"])
     prompt = f"{rules}\n\n素材（共 {n} 則）：\n{block}"
-    order = [g["provider"]] + (["gemini"] if g["provider"] != "gemini" else [])
-    want = max(2, g["pick"] // 2)
+    order = [g["provider"], "gemini" if g["provider"] != "gemini" else "groq"]
+    want = min(max(2, g["pick"] // 2), max(1, n))       # 素材本來就少時，不為了湊數去請下一家
     best: list[dict] = []
     best_prov = best_model = ""
     for prov in order:
@@ -154,7 +176,7 @@ def _notes_for_group(items: list[dict], g: dict, trace: list) -> tuple[list[dict
         try:
             log.info(f"   [{g['name']}] 交給 {prov}（素材 {n} 則，提示詞約 {len(prompt)} 字，輸出上限 {g['max_out']}）")
             text = _call(prov, prompt, g["max_out"])
-            notes = _parse_notes(text, g["pick"], used)
+            notes = _parse_notes(text, g["pick"], used, g["buckets"][0])
             if not notes:
                 raise RuntimeError("解析不到任何筆記")
             model = A.LAST_MODEL.get(prov, "")
@@ -172,12 +194,16 @@ def _notes_for_group(items: list[dict], g: dict, trace: list) -> tuple[list[dict
     return best, best_prov, best_model
 
 
-def _notes_text(groups_notes: list[tuple[str, list[dict]]]) -> str:
+def _notes_text(groups_notes: list[tuple[str, list[dict]]], compact: bool = False) -> str:
     out = []
     for name, notes in groups_notes:
         out.append(f"\n【{name}】")
         for i, r in enumerate(notes, 1):
             src = f"[{r['source']}] " if r.get("source") else ""
+            if compact:      # 審稿用：去掉重要度與欄位前綴，省 token
+                bits = [r["fact"]] + [x for x in (r["background"], r["impact"]) if x and x != "無"]
+                out.append(f"{i}. {src}" + "；".join(bits))
+                continue
             out.append(f"{i}. {src}事實：{r['fact']}　背景：{r['background']}　"
                        f"可能影響：{r['impact']}　（重要度 {r['score']}）")
     return "\n".join(out)
@@ -211,4 +237,5 @@ def build_daily(items: list[dict], date: str, trace: list | None = None) -> dict
         log.warning(f"   統稿失敗：{str(ex)[:200]}")
         trace[-1]["status"] = "統稿失敗"
         body, writer = "", None
-    return {"body": body, "groups": info, "notes_text": ntext, "groups_notes": safe_src, "writer": writer}
+    return {"body": body, "groups": info, "notes_text": ntext, "notes_compact": _notes_text(got, compact=True),
+            "groups_notes": safe_src, "fed_items": [it for g in GROUPS for it in _group_block(items, g)[2]], "notes_all": [r for _, ns in got for r in ns], "writer": writer}

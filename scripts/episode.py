@@ -12,13 +12,30 @@ import guard
 import market
 import numcheck as N
 import pipeline as P
+import re
+import topics as T
 
 log = logging.getLogger(__name__)
-__version__ = "1.6.0"
+__version__ = "1.8.0"
 
 MINIMAL_BODY = "這一集的新聞整理沒有順利完成。我們不憑空補充內容，新聞來源請參考文字版頁面的連結。"
 MIN_DAILY = guard.MIN_BODY_CHARS
 MIN_OTHER = 100
+
+
+_STOP = {"the", "and", "for", "with", "from", "that", "this", "its", "has", "have", "are", "was", "will", "new", "over",
+         "after", "into", "more", "than", "about", "amid", "says", "said"}
+
+
+def _is_covered(body: str, fact: str) -> bool:
+    """這則筆記是否真的出現在成稿裡：比對事實中的專有名詞與數字；純中文事實改比對相鄰兩字。"""
+    low = body.lower()
+    toks = {w.lower() for w in re.findall(r"[A-Za-z][A-Za-z0-9\.\-&]{2,}|\d[\d,\.]*\d|\d", fact)} - _STOP
+    if toks:
+        hit = sum(1 for t in toks if t in low)
+        return hit >= min(2, len(toks))
+    grams = {fact[i:i + 2] for i in range(len(fact) - 1)}
+    return bool(grams) and sum(1 for g in grams if g in body) / len(grams) >= 0.4
 
 
 def _source_text(items: list[dict], digest: str) -> str:
@@ -62,7 +79,7 @@ def build(now: datetime, mode: str, items: list[dict], digest: str = "", trace: 
     # ② 防幻覺：程式核對數字 + 另一個 AI 審稿，可疑句子直接刪除
     report: dict = {}
     if body:
-        notes_text = pipe["notes_text"] if pipe else (digest[:12000] if digest else A._items_block(items, date_zh))
+        notes_text = pipe["notes_compact"] if pipe else (digest[:12000] if digest else A._items_block(items, date_zh))
         writer_key = (used["writer"] or {}).get("provider", "")
         body, report = guard.clean_body(body, [_source_text(items, digest)], notes_text, writer_key,
                                         enable_audit=os.environ.get("AUDIT", "1") != "0")
@@ -81,6 +98,16 @@ def build(now: datetime, mode: str, items: list[dict], digest: str = "", trace: 
             body, used["safe_mode"], used["writer"] = MINIMAL_BODY, True, None
             used["auditor"], used["audit_status"] = None, "off"
 
+    stats, cov_rows = None, []
+    if pipe:
+        covered: dict[str, int] = {}
+        for r in pipe["notes_all"]:
+            ok = _is_covered(body, r["fact"])
+            cov_rows.append({**r, "covered": ok})
+            if ok:
+                covered[r["bucket"]] = covered.get(r["bucket"], 0) + 1
+        stats = T.render_stats(T.count_by_bucket(items), covered)
+
     script = "\n\n".join([frame.opening(now, mode, slot), body, frame.closing(mode, used)])
     return {"script": script, "body": body, "used": used, "report": report, "slot": slot,
-            "mode": mode, "raw_len": raw_len, "pipe": pipe}
+            "mode": mode, "raw_len": raw_len, "pipe": pipe, "stats": stats, "cov_rows": cov_rows}

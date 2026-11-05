@@ -3,8 +3,8 @@
 新增官方來源：聯準會、勞工統計局；Google News RSS 只當作標題備援（無摘要）。
 新網址未必都有效，試跑 Summary 的「來源診斷」會逐一列出。
 """
-__version__ = "1.6.1"
-import time, logging
+__version__ = "1.8.0"
+import re, time, logging
 from datetime import datetime, timedelta, timezone
 
 import feedparser, requests
@@ -100,6 +100,37 @@ SOURCES = [
 def _gnews(q: str) -> str:
     return f"https://news.google.com/rss/search?q={q}+when:2d&hl=en-US&gl=US&ceid=US:en"
 
+
+# ── v1.8.0 新增：依主題補強的專業來源（網址未驗證，以試跑「來源診斷」為準；抓不到會自動略過）──
+SOURCES += [
+    ("Semiconductor Engineering", "https://semiengineering.com/feed/"),
+    ("EE Times",                  "https://www.eetimes.com/feed/"),
+    ("SpaceNews",                 "https://spacenews.com/feed/"),
+    ("Via Satellite",             "https://www.satellitetoday.com/feed/"),
+    ("POWER Magazine",            "https://www.powermag.com/feed/"),
+    ("Canary Media",              "https://www.canarymedia.com/rss.rss"),
+    ("Data Center Dynamics",      "https://www.datacenterdynamics.com/en/rss/"),
+    ("EIA Today in Energy",       "https://www.eia.gov/rss/todayinenergy.xml"),
+    ("OilPrice.com",              "https://oilprice.com/rss/main"),
+    ("Rigzone",                   "https://www.rigzone.com/news/rss/rigzone_latest.aspx"),
+]
+# Google News 關鍵字搜尋（公開 RSS，只有標題；補專門主題的缺口）。標籤以「Google News｜」開頭，摘要不使用。
+GNEWS_TOPICS = [
+    ("記憶體與 HBM",   "HBM+OR+DRAM+OR+Micron+OR+%22SK+hynix%22", "A2"),
+    ("AI 晶片",        "Nvidia+OR+AMD+OR+Broadcom+AI+chips", "A1"),
+    ("晶圓製造與設備", "TSMC+OR+ASML+OR+%22advanced+packaging%22", "A3"),
+    ("變壓器與電網設備", "transformer+shortage+OR+%22grid+equipment%22+OR+substation+OR+switchgear", "B2"),
+    ("數據中心供電",   "%22data+center%22+power+demand+OR+%22behind-the-meter%22", "B4"),
+    ("油氣與油價",     "oil+prices+OR+OPEC+OR+LNG", "B5"),
+    ("6G 與下一代網路", "6G+OR+%22next-generation+network%22+OR+%22open+RAN%22", "A7"),
+    ("衛星與太空",     "%22direct-to-cell%22+OR+Starlink+OR+%22AST+SpaceMobile%22+OR+%22Rocket+Lab%22", "A6"),
+    ("電信運營商",     "Verizon+OR+AT%26T+OR+T-Mobile+capex+OR+fiber", "B6"),
+    ("電信設備",       "Ericsson+OR+Nokia+OR+Corning+OR+Ciena", "B7"),
+]
+for _n, _q, _h in GNEWS_TOPICS:
+    SOURCES.append((f"Google News｜{_n}", _gnews(_q)))
+GN_HINTS = {f"Google News｜{n}": h for n, _, h in GNEWS_TOPICS}
+
 # 備用網址（依序嘗試，條目併入；官方源條目不足 2 則才會啟動）
 FALLBACKS = {
     "Bloomberg Markets": ["https://feeds.bloomberg.com/technology/news.rss"],
@@ -117,12 +148,13 @@ FALLBACKS = {
     "Federal Reserve":   ["https://www.federalreserve.gov/feeds/press_monetary.xml"],
 }
 TIMEOUT = {"Nasdaq": 30}
-MAX_AGE_H.update({"Federal Reserve": 240, "BLS": 240, "Utility Dive": 48, "Electrek": 36, "Mobile World Live": 72})
+MAX_AGE_H.update({"Semiconductor Engineering": 48, "EE Times": 48, "SpaceNews": 48, "Via Satellite": 72, "POWER Magazine": 72,
+                  "Canary Media": 72, "Data Center Dynamics": 48, "EIA Today in Energy": 168, "OilPrice.com": 36, "Rigzone": 36,"Federal Reserve": 240, "BLS": 240, "Utility Dive": 48, "Electrek": 36, "Mobile World Live": 72})
 
 
 def _parse(url: str, label: str) -> list[dict]:
     """解析單個 RSS URL，返回標準化條目；同時把診斷結果記進 DIAG。"""
-    base = label.replace("(alt)", "")
+    base = re.sub(r"\(alt\d*\)", "", label)
     cutoff = datetime.now(timezone.utc) - timedelta(hours=MAX_AGE_H.get(base, DEFAULT_AGE_H))
     diag = {"url": url, "status": "-", "entries": 0, "fresh": 0, "newest": "-", "error": ""}
     DIAG[label] = diag
@@ -152,7 +184,8 @@ def _parse(url: str, label: str) -> list[dict]:
             items.append({
                 "source":  base,
                 "title":   getattr(e, "title",   "").strip(),
-                "summary": getattr(e, "summary", "")[:400].strip(),
+                "summary": "" if base.startswith("Google News") else re.sub(r"<[^>]+>", " ", getattr(e, "summary", ""))[:400].strip(),
+                "hint":    GN_HINTS.get(base, ""),
                 "url":     getattr(e, "link",    ""),
             })
         diag["fresh"] = len(items)
@@ -162,6 +195,17 @@ def _parse(url: str, label: str) -> list[dict]:
         diag["error"] = f"{type(ex).__name__}: {str(ex)[:100]}"
         log.warning(f"   {label} RSS 失敗: {ex}")
         return []
+
+
+def _dedupe(items: list[dict]) -> list[dict]:
+    """同一則新聞常被多個來源／Google News 重複收錄：依網址與標題前 60 字去重，保留先出現的。"""
+    seen_u, seen_t, out = set(), set(), []
+    for it in items:
+        key = re.sub(r"[^a-z0-9]+", "", re.sub(r"\s+[-–|]\s+[^-–|]+$", "", it["title"].lower()))[:60]
+        if (it["url"] and it["url"] in seen_u) or (key and key in seen_t):
+            continue
+        seen_u.add(it["url"]); seen_t.add(key); out.append(it)
+    return out
 
 
 def fetch_all() -> list[dict]:
@@ -189,8 +233,9 @@ def fetch_all() -> list[dict]:
         results.extend(items)
         time.sleep(1.0)
 
+    results = _dedupe(results)
     total = len(results)
-    log.info(f"抓取完成，共 {total} 則")
+    log.info(f"抓取完成，共 {total} 則（已去除重複）")
 
     # 保底：若總量太少，返回基本提示讓 AI 知道數據不足
     if total < 5:

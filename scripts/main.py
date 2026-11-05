@@ -1,11 +1,11 @@
-# scripts/main.py  (v1.6.0)
+# scripts/main.py  (v1.8.0)
 import asyncio, html, logging, os, re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
 
-__version__ = "1.6.1"
+__version__ = "1.8.0"
 
 # 讓 analyzer.py 的 log.info 也會顯示在 GitHub Actions 日誌
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -15,7 +15,7 @@ import analyzer as _an
 from tts      import to_mp3
 from weekly   import gather_digest
 import pipeline as _pl
-import market, numcheck, episode as _ep
+import market, numcheck, topics, episode as _ep
 from r2       import upload_file, upload_text
 
 # publish.py 在同一個 scripts/ 目錄，直接 import
@@ -126,7 +126,7 @@ def split_script(script: str) -> tuple[str, list[str]]:
 
 
 def build_notes(script: str, transcript_url: str | None,
-                max_chars: int = DESC_MAX_CHARS) -> tuple[str, str, bool]:
+                max_chars: int = DESC_MAX_CHARS, stats_line: str = "") -> tuple[str, str, bool]:
     """
     組出說明欄，回傳 (純文字版, HTML 版, 是否被截斷)。結構：
         導語（第一段，預覽區看得到）
@@ -142,7 +142,7 @@ def build_notes(script: str, transcript_url: str | None,
     more = "（後文請見全文連結）" if transcript_url else "（後文略）"
 
     lead, _ = _truncate(lead, max(max_chars // 2, 100))      # 保險：導語本身過長
-    head = sep.join(x for x in (lead, link_line) if x)
+    head = sep.join(x for x in (lead, stats_line, link_line) if x)
     rest_text = sep.join(rest_paras)
 
     truncated = False
@@ -188,13 +188,14 @@ def _source_rows(items: list[dict]) -> list[tuple[str, str, str]]:
     return rows
 
 
-def build_transcript_html(title: str, script: str, items: list[dict], mp3_url: str) -> str:
+def build_transcript_html(title: str, script: str, items: list[dict], mp3_url: str, stats: dict | None = None) -> str:
     e = html.escape
     body = "\n".join("<p>" + e(p).replace("\n", "<br>") + "</p>" for p in _paragraphs(script))
     rows = "\n".join(
         f'<li><a href="{e(u, quote=True)}" rel="noopener nofollow">{e(t)}</a> <small>— {e(s)}</small></li>'
         for s, t, u in _source_rows(items)
     )
+    stats_html = stats["html"] if stats else ""
     sources = f"<h2>本集參考的新聞來源</h2>\n<ol>\n{rows}\n</ol>" if rows else ""
     return f"""<!doctype html>
 <html lang="zh-TW">
@@ -211,6 +212,8 @@ h2{{font-size:1.1rem;margin-top:2rem}}
 audio{{width:100%;margin:.8rem 0 1.2rem}}
 li{{margin:.45rem 0;word-break:break-word}}
 small,.note{{opacity:.7}}
+table{{border-collapse:collapse;width:100%;font-size:.92rem}}
+th,td{{border:1px solid #8884;padding:.3rem .5rem;text-align:left}}
 </style>
 </head>
 <body>
@@ -218,6 +221,7 @@ small,.note{{opacity:.7}}
 <p class="meta">{e(SHOW_NAME)}</p>
 <audio controls preload="none" src="{e(mp3_url, quote=True)}"></audio>
 {body}
+{stats_html}
 {sources}
 <p class="note"><small>{e(AI_NOTICE)}新聞連結指向原網站，版權屬原作者。</small></p>
 </body>
@@ -225,10 +229,12 @@ small,.note{{opacity:.7}}
 """
 
 
-def build_transcript_md(title: str, script: str, items: list[dict], mp3_url: str) -> str:
+def build_transcript_md(title: str, script: str, items: list[dict], mp3_url: str, stats: dict | None = None) -> str:
     lines = [f"# {title}", "", f"{SHOW_NAME}　[收聽音頻]({mp3_url})", ""]
     for para in _paragraphs(script):
         lines += [para, ""]
+    if stats:
+        lines += [stats["md"], ""]
     rows = _source_rows(items)
     if rows:
         lines += ["## 本集參考的新聞來源", ""]
@@ -239,17 +245,17 @@ def build_transcript_md(title: str, script: str, items: list[dict], mp3_url: str
 
 
 def publish_transcript(base_url: str, date_str: str, title: str, script: str,
-                       items: list[dict], mp3_url: str) -> str | None:
+                       items: list[dict], mp3_url: str, stats: dict | None = None) -> str | None:
     """上傳全文頁到 R2，回傳 HTML 的公開網址；任何失敗都只警告、不影響集數發布。"""
     key_html = f"{TRANSCRIPT_DIR}/{date_str}.html"
     key_md   = f"{TRANSCRIPT_DIR}/{date_str}.md"
     try:
-        upload_text(build_transcript_md(title, script, items, mp3_url),
+        upload_text(build_transcript_md(title, script, items, mp3_url, stats),
                     key_md, "text/markdown; charset=utf-8")
     except Exception as ex:
         print(f"   ⚠️ Markdown 全文上傳失敗（不影響發布）: {type(ex).__name__}")
     try:
-        upload_text(build_transcript_html(title, script, items, mp3_url),
+        upload_text(build_transcript_html(title, script, items, mp3_url, stats),
                     key_html, "text/html; charset=utf-8")
         return f"{base_url}/{key_html}"
     except Exception as ex:
@@ -342,7 +348,7 @@ async def main():
         print("① 週六回顧：略過新聞抓取")
     else:
         print("① 抓取中...")
-        items = numcheck.prepare_items(fetch_all())
+        items = topics.tag_items(numcheck.prepare_items(fetch_all()))
         print(f"   共 {len(items)} 則原始條目")
 
     # ② 稿件：主體（AI）→ 防幻覺（程式核對數字＋另一個 AI 審稿，可疑句子刪除）→ 開場與結尾（程式寫）
@@ -367,12 +373,12 @@ async def main():
     suffix = {"review": "｜本週回顧", "preview": "｜下週前瞻", "holiday": "｜休市簡報"}.get(mode, "")
     title = f"{disp} {SHOW_NAME}{suffix}"
     print("④-b 儲存全文頁...")
-    transcript_url = publish_transcript(base_url, date_str, title, script, items, episode_url)
+    transcript_url = publish_transcript(base_url, date_str, title, script, (result["pipe"] or {}).get("fed_items") or items, episode_url, result.get("stats"))
     if transcript_url:
         print(f"   全文頁：{transcript_url}")
 
     # ⑤ 組成 episode dict（符合 publish.py 的格式）
-    notes_text, notes_html, truncated = build_notes(script, transcript_url, DESC_MAX_CHARS)
+    notes_text, notes_html, truncated = build_notes(script, transcript_url, DESC_MAX_CHARS, (result.get("stats") or {}).get("line", ""))
     print(f"   說明欄 {len(notes_text)} / {DESC_MAX_CHARS} 字符"
           f"（{'已在句界截斷' if truncated else '完整收錄，未截斷'}；全文 {len(script)} 字）")
     episode = {
