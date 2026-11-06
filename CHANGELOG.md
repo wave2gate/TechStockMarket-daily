@@ -5,7 +5,19 @@
 ② 在本檔最上方新增一段 ③ 一起 commit。
 Actions 日誌第一行會印出「版本：main x | analyzer x | publish x」，用來確認跑的是新程式碼；
 出現 `?` 代表那個檔案還是舊版（沒有 `__version__`）。
-各檔案目前版本：main／pipeline／fetcher／episode／topics 為 1.8.0、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
+各檔案目前版本：main／episode 為 1.8.0、pipeline／fetcher／topics／trial 為 1.8.1、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
+
+---
+
+## [1.8.1] — 2026-11-06　新增「資訊安全與數據中心基礎設施」、架構文件
+- **新分類區塊**（3 個細項）：S1 網路與通訊安全（駭客、勒索、漏洞、零信任）、S2 軟硬體與供應鏈安全、S3 數據中心機櫃、散熱與樓控／工控安全（含「駭客攻擊空調水冷導致熱當機」這類事件）。`B4` 改為只管「數據中心供電」，散熱相關關鍵詞移到 S3。
+- **新來源**（未驗證）：Krebs on Security、BleepingComputer、The Hacker News、SecurityWeek、Dark Reading、CISA Advisories、Data Center Knowledge；Google News 4 組（資安事件、資安公司、機櫃與散熱、數據中心樓控與工控攻擊）。
+- 筆記改為七組（新增資安組，Gemini 負責，失敗時 Groq 補做）；總筆記數約 28 則。統稿順序：大盤 → AI 與半導體 → 太空與下一代通訊 → 資安與數據中心基礎設施 → 電力 → 油氣 → 電信。
+- `WATCHLIST` 先放 Palo Alto Networks、Cloudflare、Vertiv（只影響選材優先順序，稿子語氣不變、不構成買賣建議）。
+- 試跑 Summary 第一行新增「各模組版本」，上傳後先看這行確認沒漏傳。
+- 新增 `ARCHITECTURE.md`：流程圖、各檔案職責、版本規則、給 AI 的接手說明。
+- 模型偏好確認：Gemini 首選 `gemini-flash-lite-latest`、Groq 首選 `openai/gpt-oss-120b`、Cloudflare 首選 `@cf/meta/llama-3.3-70b-instruct-fp8-fast`（程式原本即如此；若首選額度滿或暫時失敗，才會自動降級到備選，署名會如實反映）。
+- 更動檔案：`topics.py` `fetcher.py` `pipeline.py` `trial.py` `ARCHITECTURE.md`（新）`CHANGELOG.md`。
 
 ---
 
