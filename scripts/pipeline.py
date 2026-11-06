@@ -4,6 +4,7 @@
 第一階段「素材筆記」：新聞先由程式（topics.py）依關鍵詞分到細項，再把細項併成六個「筆記組」，
 各交給一個 AI 挑重點、寫成固定格式的短筆記（依額度與能力分配）：
     大盤宏觀財報政策 → Gemini；AI 與半導體 → Groq；太空與下一代通訊 → Cloudflare（英文短筆記）
+    資訊安全與數據中心基礎設施 → Gemini
     電力與電網 → Gemini；油氣 → Cloudflare（英文短筆記）；電信 → Groq
     某組 AI 失敗，改由另一家補做（Groq 組補 Gemini，Gemini 組補 Groq）。
 第二階段「統稿」：把筆記交給提供商鏈寫成節目主體（不含開場／結尾；不設字數目標）。
@@ -15,7 +16,7 @@ import logging, os, re, time
 import analyzer as A
 import topics as T
 
-__version__ = "1.8.0"
+__version__ = "1.8.1"
 log = logging.getLogger(__name__)
 
 # feed＝每組最多送給 AI 幾則素材（依來源輪流取，關注公司優先）；pick＝AI 挑出幾則筆記
@@ -26,10 +27,12 @@ GROUPS = [
      "pick": 6, "feed": 14, "max_out": 2400, "lang": "zh"},
     {"key": "space", "name": "太空與下一代通訊（衛星、6G、NGN、光通訊）", "buckets": ["A5", "A6", "A7"], "provider": "cloudflare",
      "pick": 3, "feed": 10, "max_out": 1400, "lang": "en"},
+    {"key": "sec", "name": "資訊安全與數據中心基礎設施（網路安全、防駭、機櫃與散熱）", "buckets": ["S1", "S2", "S3"], "provider": "gemini",
+     "pick": 3, "feed": 12, "max_out": 1800, "lang": "zh"},
     {"key": "power", "name": "電力與電網（發電、輸配電設備、儲能、數據中心供電）", "buckets": ["B1", "B2", "B3", "B4"], "provider": "gemini",
-     "pick": 6, "feed": 14, "max_out": 2400, "lang": "zh"},
+     "pick": 5, "feed": 14, "max_out": 2400, "lang": "zh"},
     {"key": "oil", "name": "油氣與油價", "buckets": ["B5"], "provider": "cloudflare",
-     "pick": 3, "feed": 8, "max_out": 1200, "lang": "en"},
+     "pick": 2, "feed": 8, "max_out": 1200, "lang": "en"},
     {"key": "telecom", "name": "電信運營商與供應鏈", "buckets": ["B6", "B7"], "provider": "groq",
      "pick": 4, "feed": 10, "max_out": 1800, "lang": "zh"},
 ]
@@ -46,7 +49,7 @@ NOTE_RULES_ZH = """你是財經資料編輯。下面是「{name}」的新聞素�
 - 「事實」：一句話，只寫素材明確寫出的內容；數字、單位與專有名詞照素材抄寫，用阿拉伯數字。
 - 「背景」：只寫素材中明確寫出的背景或原因；素材沒有寫就填「無」，絕對不要用你自己的知識補充。
 - 「可能的影響」：只寫素材中提到的影響或市場反應；素材沒有寫就填「無」，不要自行推測。
-- 不要補充素材沒有的事實、數字、日期；同一事件只算一則；與美股、科技、宏觀、電力能源、油氣、太空、通訊無關的略過。
+- 不要補充素材沒有的事實、數字、日期；同一事件只算一則；與美股、科技、宏觀、電力能源、油氣、太空、通訊、資訊安全無關的略過。
 - 金額照素材的美元寫法（保留 million／billion 英文單位）；標示「（非美元金額）」的不要引用金額。
 - 公司名與人名保留英文原名，不要翻譯。
 - 語氣中立克制，不預測漲跌，不給買賣建議。"""
@@ -60,14 +63,14 @@ Rules:
 - Fact: one sentence using ONLY what the item says; copy numbers and names exactly.
 - Background: only if the item itself states it; otherwise write "none". Never add outside knowledge.
 - Possible impact: only if the item itself states it; otherwise write "none". Never speculate.
-- One line per event. Skip items unrelated to US stocks, tech, macro, power/energy, oil & gas, space or telecom.
+- One line per event. Skip items unrelated to US stocks, tech, macro, power/energy, oil & gas, space, telecom or cybersecurity.
 - Keep amounts exactly as written in the item (US dollars). Skip amounts marked （非美元金額）.
 - Neutral tone; no price predictions; no buy/sell advice."""
 
 SYSTEM_COMPOSE = """你是一位專業的台灣財經播客主持人，聲音沉穩、邏輯清晰。
 下面是編輯整理好的新聞筆記，分成幾個主題。請把它們寫成廣播播報稿的主體。
 結構：先用一小段（兩到四句）概述今天筆記裡的主要脈絡；再依下面的主題順序逐段說明，沒有筆記的主題整段略過：
-大盤宏觀財報政策 → AI 與半導體 → 太空與下一代通訊 → 電力與電網 → 油氣與油價 → 電信運營商與供應鏈。
+大盤宏觀財報政策 → AI 與半導體 → 太空與下一代通訊 → 資訊安全與數據中心基礎設施 → 電力與電網 → 油氣與油價 → 電信運營商與供應鏈。
 每一則筆記都要提到（同一事件的多條筆記可合併成一則），不要遺漏；每則先說事實，再說筆記中的背景與可能影響，用自然的句子帶出。
 筆記寫「無」或 none 的欄位就不要講，不要自己補。不要說「積極」「保守」這類讀者標籤。
 絕對不要照抄筆記的欄位名稱（例如「事實」「背景」「影響為」「可能影響」），也不要把同一件事用不同說法重複講兩次。

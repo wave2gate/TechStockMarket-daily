@@ -1,5 +1,5 @@
 """
-試跑（v1.6.1）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
+試跑（v1.8.1）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
 但不做 TTS、不上傳、不改 feed、不 commit。結果寫進 Actions 的 Summary 頁。
 
 環境變數：
@@ -44,7 +44,14 @@ def main():
         r, err = None, f"{type(e).__name__}: {str(e)[:200]}"
     dt = time.time() - t0
 
-    out = [f"# 試跑結果（未發布）", "",
+    import importlib
+    mods = []
+    for m in ("main", "episode", "pipeline", "analyzer", "guard", "frame", "numcheck", "market", "topics", "fetcher", "weekly"):
+        try:
+            mods.append(f"{m} {getattr(importlib.import_module(m), '__version__', '?')}")
+        except Exception as e:
+            mods.append(f"{m} 載入失敗({type(e).__name__})")
+    out = [f"# 試跑結果（未發布）", "", "- 各模組版本：" + "、".join(mods),
            f"- 模式：**{mode}**　美東交易日：{slot}　假裝時間：{now:%Y-%m-%d %H:%M} UTC",
            f"- 版本：analyzer {analyzer.__version__} / pipeline {pipeline.__version__} / episode {episode.__version__}",
            f"- 耗時：{dt:.0f} 秒"]

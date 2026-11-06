@@ -8,9 +8,9 @@
 """
 import re
 
-__version__ = "1.8.0"
+__version__ = "1.8.1"
 
-WATCHLIST: list[str] = []          # 之後由你提供，例如 ["Nvidia", "Micron", "SK hynix", "Vertiv"]
+WATCHLIST: list[str] = ["Palo Alto Networks", "Cloudflare", "Vertiv"]   # 選材優先（不是買賣建議）；之後可再增減
 
 # 區塊 → 細項。順序也是稿子與統計表的順序。
 SECTIONS = [
@@ -18,15 +18,17 @@ SECTIONS = [
     ("AI 與半導體", [("A1", "AI 晶片與算力"), ("A2", "記憶體與儲存（HBM、DRAM、NAND）"),
                     ("A3", "晶圓製造、設備與先進封裝"), ("A4", "AI 軟體、雲端與資本支出")]),
     ("太空與下一代通訊", [("A5", "光通訊與資料中心互連"), ("A6", "衛星、航太與太空"), ("A7", "6G 與下一代網路（NGN）")]),
+    ("資安與數據中心基礎設施", [("S1", "網路與通訊安全（駭客、勒索、漏洞）"), ("S2", "軟硬體與供應鏈安全"),
+                      ("S3", "數據中心機櫃、散熱與樓控／工控安全")]),
     ("電力與電網", [("B1", "發電與公用事業"), ("B2", "電網與輸配電設備"), ("B3", "儲能與電池"),
-                  ("B4", "數據中心供電與冷卻")]),
+                  ("B4", "數據中心供電")]),
     ("油氣", [("B5", "石油與天然氣")]),
     ("電信", [("B6", "電信運營商"), ("B7", "電信設備與供應鏈")]),
 ]
 NAMES = {k: n for _, subs in SECTIONS for k, n in subs}
 
 # 越前面的細項，同分時越優先（具體的在前、泛用的在後）
-PRIORITY = ["B2", "B4", "B3", "B1", "B5", "A2", "A1", "A3", "A5", "A6", "A7", "A4", "B6", "B7", "C3", "C2", "C1"]
+PRIORITY = ["S3", "S1", "S2", "B2", "B4", "B3", "B1", "B5", "A2", "A1", "A3", "A5", "A6", "A7", "A4", "B6", "B7", "C3", "C2", "C1"]
 
 BUCKETS: dict[str, dict] = {
     "C1": {"w": 0.5, "kw": ["federal reserve", "fed ", "fomc", "powell", "rate cut", "rate hike", "inflation", "cpi", "pce",
@@ -52,6 +54,18 @@ BUCKETS: dict[str, dict] = {
                             "aerospace", "space station", "lunar", "spacecraft"]},
     "A7": {"w": 1.3, "kw": ["6g", "5g-advanced", "5g advanced", "ngn", "next-generation network", "open ran", "o-ran",
                             "ai-ran", "3gpp", "non-terrestrial", "ntn", "spectrum", "ran "]},
+    "S1": {"w": 1.3, "kw": ["cyberattack", "cyber attack", "cyberattacks", "hacker", "hackers", "hacked", "breach", "ransomware",
+                            "zero-day", "vulnerability", "vulnerabilities", "cve-", "exploit", "malware", "phishing", "ddos",
+                            "zero trust", "sase", "firewall", "palo alto", "crowdstrike", "zscaler", "fortinet", "okta",
+                            "sentinelone", "cloudflare", "cisa", "botnet", "espionage", "salt typhoon", "volt typhoon",
+                            "encryption", "post-quantum", "cybersecurity", "security flaw", "threat actor"]},
+    "S2": {"w": 1.2, "kw": ["firmware", "supply chain attack", "software supply chain", "hardware security", "chip vulnerability",
+                            "spectre", "side-channel", "secure boot", "backdoor", "vpn", "edge device", "tpm",
+                            "confidential computing", "router flaw", "bios", "open source package"]},
+    "S3": {"w": 1.6, "kw": ["cooling", "liquid cooling", "chiller", "hvac", "cdu", "thermal", "vertiv", "nvent", "modine",
+                            "schneider electric", "building management", "scada", "ot security", "industrial control",
+                            "water cooling", "cooling system", "power distribution unit", "pdu", "server rack", "rack-level",
+                            "immersion cooling"]},
     "B1": {"w": 1.0, "kw": ["utility", "utilities", "power plant", "nuclear", "smr", "uprate", "gas-fired", "solar", "wind farm",
                             "renewable", "generation", "coal", "ppa", "rate case", "dominion", "nextera", "vistra",
                             "constellation energy", "geothermal"]},
@@ -60,8 +74,8 @@ BUCKETS: dict[str, dict] = {
                             "hitachi energy", "eaton", "hubbell", "quanta services", "power cable", "distribution"]},
     "B3": {"w": 1.3, "kw": ["battery", "energy storage", "bess", "lithium", "lfp", "grid-scale", "megapack", "fluence",
                             "storage project", "gwh", "mwh"]},
-    "B4": {"w": 1.4, "kw": ["data center power", "data centre power", "backstop", "behind-the-meter", "liquid cooling",
-                            "cooling", "vertiv", "power demand", "load growth", "data center", "data centre", "hyperscale"]},
+    "B4": {"w": 1.4, "kw": ["data center power", "data centre power", "backstop", "behind-the-meter",
+                            "power demand", "load growth", "data center", "data centre", "hyperscale"]},
     "B5": {"w": 1.3, "kw": ["oil", "crude", "brent", "wti", "opec", "lng", "natural gas", "gas prices", "refinery",
                             "rig count", "shale", "exxon", "chevron", "occidental", "drilling", "petroleum", "eia "]},
     "B6": {"w": 1.1, "kw": ["verizon", "at&t", "t-mobile", "comcast", "charter", "carrier", "operator", "fiber",
@@ -80,6 +94,8 @@ HINTS = {
     "FierceWireless": "B6", "Energy Storage News": "B3", "Bloomberg NEF": "B1", "Utility Dive": "B2", "Electrek": "B1",
     "POWER Magazine": "B1", "Canary Media": "B1", "Data Center Dynamics": "B4", "EIA Today in Energy": "B5",
     "OilPrice.com": "B5", "Rigzone": "B5",
+    "Krebs on Security": "S1", "BleepingComputer": "S1", "The Hacker News": "S1", "SecurityWeek": "S1",
+    "Dark Reading": "S1", "CISA Advisories": "S1", "Data Center Knowledge": "S3",
 }
 
 _COMPILED: dict[str, list[tuple[re.Pattern, float]]] = {}

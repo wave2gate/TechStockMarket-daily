@@ -3,7 +3,7 @@
 新增官方來源：聯準會、勞工統計局；Google News RSS 只當作標題備援（無摘要）。
 新網址未必都有效，試跑 Summary 的「來源診斷」會逐一列出。
 """
-__version__ = "1.8.0"
+__version__ = "1.8.1"
 import re, time, logging
 from datetime import datetime, timedelta, timezone
 
@@ -113,6 +113,14 @@ SOURCES += [
     ("EIA Today in Energy",       "https://www.eia.gov/rss/todayinenergy.xml"),
     ("OilPrice.com",              "https://oilprice.com/rss/main"),
     ("Rigzone",                   "https://www.rigzone.com/news/rss/rigzone_latest.aspx"),
+    # 資安與數據中心基礎設施（v1.8.1）
+    ("Krebs on Security",         "https://krebsonsecurity.com/feed/"),
+    ("BleepingComputer",          "https://www.bleepingcomputer.com/feed/"),
+    ("The Hacker News",           "https://feeds.feedburner.com/TheHackersNews"),
+    ("SecurityWeek",              "https://feeds.feedburner.com/securityweek"),
+    ("Dark Reading",              "https://www.darkreading.com/rss.xml"),
+    ("CISA Advisories",           "https://www.cisa.gov/cybersecurity-advisories/all.xml"),
+    ("Data Center Knowledge",     "https://www.datacenterknowledge.com/rss.xml"),
 ]
 # Google News 關鍵字搜尋（公開 RSS，只有標題；補專門主題的缺口）。標籤以「Google News｜」開頭，摘要不使用。
 GNEWS_TOPICS = [
@@ -126,6 +134,10 @@ GNEWS_TOPICS = [
     ("衛星與太空",     "%22direct-to-cell%22+OR+Starlink+OR+%22AST+SpaceMobile%22+OR+%22Rocket+Lab%22", "A6"),
     ("電信運營商",     "Verizon+OR+AT%26T+OR+T-Mobile+capex+OR+fiber", "B6"),
     ("電信設備",       "Ericsson+OR+Nokia+OR+Corning+OR+Ciena", "B7"),
+    ("資安與駭客事件", "cyberattack+OR+ransomware+OR+%22zero-day%22+OR+%22data+breach%22", "S1"),
+    ("資安公司",       "%22Palo+Alto+Networks%22+OR+CrowdStrike+OR+Zscaler+OR+Cloudflare+OR+Fortinet", "S1"),
+    ("機櫃與散熱",     "%22data+center%22+cooling+OR+Vertiv+OR+%22liquid+cooling%22+OR+nVent", "S3"),
+    ("數據中心樓控與工控攻擊", "%22data+center%22+HVAC+OR+SCADA+OR+%22cooling+system%22+cyberattack+OR+hack", "S3"),
 ]
 for _n, _q, _h in GNEWS_TOPICS:
     SOURCES.append((f"Google News｜{_n}", _gnews(_q)))
@@ -148,7 +160,8 @@ FALLBACKS = {
     "Federal Reserve":   ["https://www.federalreserve.gov/feeds/press_monetary.xml"],
 }
 TIMEOUT = {"Nasdaq": 30}
-MAX_AGE_H.update({"Semiconductor Engineering": 48, "EE Times": 48, "SpaceNews": 48, "Via Satellite": 72, "POWER Magazine": 72,
+MAX_AGE_H.update({"Krebs on Security": 72, "BleepingComputer": 36, "The Hacker News": 36, "SecurityWeek": 48, "Dark Reading": 48,
+                  "CISA Advisories": 168, "Data Center Knowledge": 72, "Semiconductor Engineering": 48, "EE Times": 48, "SpaceNews": 48, "Via Satellite": 72, "POWER Magazine": 72,
                   "Canary Media": 72, "Data Center Dynamics": 48, "EIA Today in Energy": 168, "OilPrice.com": 36, "Rigzone": 36,"Federal Reserve": 240, "BLS": 240, "Utility Dive": 48, "Electrek": 36, "Mobile World Live": 72})
 
 
