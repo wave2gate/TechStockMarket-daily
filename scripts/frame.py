@@ -6,7 +6,7 @@ from datetime import date, datetime
 
 import market
 
-__version__ = "1.6.0"
+__version__ = "1.8.2"
 
 RISK = "市場波動來自技術面、消息面、機構資金等多重因素，請勿單憑新聞買賣股票，投資需謹慎。"
 HEALTH = "無論走勢如何，請保持規律的作息與適度的運動，長期的心態比短線的漲跌更重要。"
@@ -35,6 +35,8 @@ def vendor(provider: str, model: str = "") -> str:
     p, m = (provider or "").lower(), (model or "").lower()
     if p == "gemini":
         return "Google 的 Gemini 模型"
+    if p == "groq" and "qwen" in m:
+        return "阿里巴巴的 Qwen 模型（在 Groq 平台上執行）"
     if p == "groq":
         return "OpenAI 開源的 gpt-oss 模型（在 Groq 平台上執行）" if "gpt-oss" in m else "Groq 平台上的開源模型"
     if p == "cloudflare":
@@ -51,13 +53,12 @@ def credits(used: dict) -> str:
     parts: list[str] = []
     groups = used.get("groups") or []
     if groups:
-        bits = []
-        for g in groups:
-            s = f"{g['name']}由{vendor(g['provider'], g.get('model', ''))}整理"
-            if g.get("planned") and g["planned"] != g["provider"]:
-                s += f"（原本由{vendor(g['planned'])}負責，因故改由它接手）"
-            bits.append(s)
-        parts.append("；".join(bits))
+        by: dict[str, list[str]] = {}
+        for g in groups:                                  # 同一個模型負責的主題併成一句，避免署名太長
+            v = vendor(g["provider"], g.get("model", ""))
+            by.setdefault(v, []).append(g["name"] + (f"（原由{vendor(g['planned'])}負責，因故改由它接手）"
+                                                     if g.get("planned") and g["planned"] != g["provider"] else ""))
+        parts.append("新聞整理方面，" + "；".join(f"{v}負責{'、'.join(ns)}" for v, ns in by.items()))
     w = used.get("writer")
     if used.get("safe_mode"):
         parts.append("這一集的稿件沒有交給人工智慧撰寫，是程式直接依據新聞筆記組成，所以文字比較樸素")

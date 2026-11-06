@@ -3,8 +3,8 @@
 新增官方來源：聯準會、勞工統計局；Google News RSS 只當作標題備援（無摘要）。
 新網址未必都有效，試跑 Summary 的「來源診斷」會逐一列出。
 """
-__version__ = "1.8.1"
-import re, time, logging
+__version__ = "1.8.2"
+import html as _html, re, time, logging
 from datetime import datetime, timedelta, timezone
 
 import feedparser, requests
@@ -196,7 +196,7 @@ def _parse(url: str, label: str) -> list[dict]:
                 continue
             items.append({
                 "source":  base,
-                "title":   getattr(e, "title",   "").strip(),
+                "title":   _html.unescape(re.sub(r"<[^>]+>", " ", getattr(e, "title", ""))).strip(),
                 "summary": "" if base.startswith("Google News") else re.sub(r"<[^>]+>", " ", getattr(e, "summary", ""))[:400].strip(),
                 "hint":    GN_HINTS.get(base, ""),
                 "url":     getattr(e, "link",    ""),

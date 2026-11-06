@@ -8,7 +8,7 @@
 """
 import re
 
-__version__ = "1.8.1"
+__version__ = "1.8.2"
 
 WATCHLIST: list[str] = ["Palo Alto Networks", "Cloudflare", "Vertiv"]   # 選材優先（不是買賣建議）；之後可再增減
 
@@ -31,13 +31,14 @@ NAMES = {k: n for _, subs in SECTIONS for k, n in subs}
 PRIORITY = ["S3", "S1", "S2", "B2", "B4", "B3", "B1", "B5", "A2", "A1", "A3", "A5", "A6", "A7", "A4", "B6", "B7", "C3", "C2", "C1"]
 
 BUCKETS: dict[str, dict] = {
-    "C1": {"w": 0.5, "kw": ["federal reserve", "fed ", "fomc", "powell", "rate cut", "rate hike", "inflation", "cpi", "pce",
+    "C1": {"w": 0.5, "kw": ["federal reserve", "fed ", "fomc", "powell", "market cap", "market value", "selloff", "sell-off", "rout", "tumbles", "plunge", "wipeout", "futures", "rate cut", "rate hike", "inflation", "cpi", "pce",
                             "jobs report", "payrolls", "unemployment", "treasury yield", "treasuries", "s&p 500", "nasdaq",
                             "dow jones", "wall street", "stock futures", "stocks", "gdp", "recession", "bond"]},
     "C2": {"w": 0.7, "kw": ["earnings", "quarterly results", "third-quarter", "revenue", "guidance", "eps", "profit",
                             "ipo", "acquisition", "acquire", "merger", "buyback", "dividend", "layoffs"]},
     "C3": {"w": 0.8, "kw": ["export control", "tariff", "sanction", "antitrust", "regulator", "fcc", "sec ", "chips act",
-                            "executive order", "subsidy", "ban on", "lawsuit", "congress"]},
+                            "executive order", "subsidy", "ban on", "lawsuit", "congress", "moratorium", "midterm", "democrat", "republican",
+                            "lawmakers", "white house", "regulation", "legislation"]},
     "A1": {"w": 1.0, "kw": ["gpu", "nvidia", "amd", "ai chip", "accelerator", "blackwell", "rubin", "custom silicon", "asic",
                             "tpu", "trainium", "inference", "broadcom", "supercomputer", "ai server", "super micro"]},
     "A2": {"w": 1.2, "kw": ["hbm", "dram", "nand", "memory chip", "memory", "micron", "sk hynix", "samsung electronics",
@@ -71,15 +72,15 @@ BUCKETS: dict[str, dict] = {
                             "constellation energy", "geothermal"]},
     "B2": {"w": 1.4, "kw": ["transformer", "grid", "transmission line", "transmission", "substation", "switchgear",
                             "interconnection queue", "pjm", "ercot", "miso", "ferc", "hvdc", "ge vernova", "siemens energy",
-                            "hitachi energy", "eaton", "hubbell", "quanta services", "power cable", "distribution"]},
+                            "hitachi energy", "eaton", "hubbell", "quanta services", "power cable"]},
     "B3": {"w": 1.3, "kw": ["battery", "energy storage", "bess", "lithium", "lfp", "grid-scale", "megapack", "fluence",
                             "storage project", "gwh", "mwh"]},
     "B4": {"w": 1.4, "kw": ["data center power", "data centre power", "backstop", "behind-the-meter",
-                            "power demand", "load growth", "data center", "data centre", "hyperscale"]},
+                            "power demand", "load growth", "gigawatt", "nuclear-powered data"]},
     "B5": {"w": 1.3, "kw": ["oil", "crude", "brent", "wti", "opec", "lng", "natural gas", "gas prices", "refinery",
                             "rig count", "shale", "exxon", "chevron", "occidental", "drilling", "petroleum", "eia "]},
     "B6": {"w": 1.1, "kw": ["verizon", "at&t", "t-mobile", "comcast", "charter", "carrier", "operator", "fiber",
-                            "broadband", "wireless", "spectrum auction", "fwa", "lumen", "telecom", "5g"]},
+                            "broadband", "wireless", "spectrum auction", "fwa", "lumen", "telecom", "5g", "mobile network", "deutsche telekom", "vodafone", "mobile operator"]},
     "B7": {"w": 1.2, "kw": ["ericsson", "nokia", "cisco", "corning", "ciena", "commscope", "base station", "radio access",
                             "telecom equipment", "fiber optic", "samsung networks", "huawei"]},
 }
@@ -91,7 +92,7 @@ HINTS = {
     "Seeking Alpha": "C2", "Federal Reserve": "C1", "BLS": "C1",
     "TechCrunch": "A4", "Semiconductor Engineering": "A3", "EE Times": "A3", "SpaceNews": "A6", "Via Satellite": "A6",
     "Mobile World Live": "A7", "Light Reading": "B7", "SDxCentral": "B7", "RCR Wireless": "B6", "Telecoms.com": "B6",
-    "FierceWireless": "B6", "Energy Storage News": "B3", "Bloomberg NEF": "B1", "Utility Dive": "B2", "Electrek": "B1",
+    "FierceWireless": "B6", "Energy Storage News": "B3", "Bloomberg NEF": "B1", "Utility Dive": "B2",
     "POWER Magazine": "B1", "Canary Media": "B1", "Data Center Dynamics": "B4", "EIA Today in Energy": "B5",
     "OilPrice.com": "B5", "Rigzone": "B5",
     "Krebs on Security": "S1", "BleepingComputer": "S1", "The Hacker News": "S1", "SecurityWeek": "S1",
@@ -115,7 +116,7 @@ def classify(item: dict) -> str:
     if hint:
         scores[hint] = scores.get(hint, 0) + 1.0
     if not scores:
-        return "C1"
+        return "X"                      # 沒有任何線索（例如電動車消費新聞）：不進任何筆記組
     return max(scores, key=lambda k: (scores[k], -PRIORITY.index(k)))
 
 
@@ -141,7 +142,8 @@ def count_by_bucket(items) -> dict[str, int]:
 
 # ── 統計表（R2 全文頁與說明欄用；不口播）────────────────────────────
 def render_stats(fetched: dict[str, int], covered: dict[str, int]) -> dict:
-    total_c, total_f = sum(covered.values()), sum(fetched.values())
+    total_c = sum(covered.values())
+    total_f = sum(v for k, v in fetched.items() if k in NAMES)
     md = ["## 本集新聞統計", "", f"本集稿件涵蓋 **{total_c}** 則新聞（依成稿比對）；今天各來源共抓到 {total_f} 則。", "",
           "| 區塊 | 細項 | 本集涵蓋 | 抓到 |", "|---|---|---|---|"]
     html = ["<h2>本集新聞統計</h2>",

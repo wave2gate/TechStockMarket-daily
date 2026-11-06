@@ -16,7 +16,7 @@ import re
 import topics as T
 
 log = logging.getLogger(__name__)
-__version__ = "1.8.0"
+__version__ = "1.8.2"
 
 MINIMAL_BODY = "這一集的新聞整理沒有順利完成。我們不憑空補充內容，新聞來源請參考文字版頁面的連結。"
 MIN_DAILY = guard.MIN_BODY_CHARS
@@ -25,6 +25,25 @@ MIN_OTHER = 100
 
 _STOP = {"the", "and", "for", "with", "from", "that", "this", "its", "has", "have", "are", "was", "will", "new", "over",
          "after", "into", "more", "than", "about", "amid", "says", "said"}
+
+
+MARK = r"[【\[（(]\s*N\d+(?:\s*[,、，/及和]\s*N?\d+)*\s*[】\]）)]"
+
+
+def _normalize_marks(body: str) -> str:
+    """AI 偶爾把標記放在句號後面：移到句號前面，才會跟著正確的句子（被刪句時標記一起消失）。"""
+    return re.sub(r"([。！？])\s*((?:" + MARK + r"\s*)+)", lambda m: m.group(2).strip() + m.group(1), body)
+
+
+def _marked_ids(body: str) -> set[int]:
+    ids: set[int] = set()
+    for m in re.finditer(MARK, body):
+        ids |= {int(x) for x in re.findall(r"\d+", m.group(0))}
+    return ids
+
+
+def _strip_marks(body: str) -> str:
+    return re.sub(r"\s*" + MARK, "", body)
 
 
 def _is_covered(body: str, fact: str) -> bool:
@@ -76,6 +95,9 @@ def build(now: datetime, mode: str, items: list[dict], digest: str = "", trace: 
             body = ""
     raw_len = len(body)
 
+    if pipe and body:
+        body = _normalize_marks(body)
+
     # ② 防幻覺：程式核對數字 + 另一個 AI 審稿，可疑句子直接刪除
     report: dict = {}
     if body:
@@ -99,10 +121,12 @@ def build(now: datetime, mode: str, items: list[dict], digest: str = "", trace: 
             used["auditor"], used["audit_status"] = None, "off"
 
     stats, cov_rows = None, []
+    marked = _marked_ids(body)
+    body = _strip_marks(body)                    # 標記只用來統計，絕不能被念出來
     if pipe:
         covered: dict[str, int] = {}
         for r in pipe["notes_all"]:
-            ok = _is_covered(body, r["fact"])
+            ok = (r.get("id") in marked) or _is_covered(body, r["fact"])
             cov_rows.append({**r, "covered": ok})
             if ok:
                 covered[r["bucket"]] = covered.get(r["bucket"], 0) + 1
