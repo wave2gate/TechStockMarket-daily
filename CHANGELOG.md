@@ -5,9 +5,15 @@
 ② 在本檔最上方新增一段 ③ 一起 commit。
 Actions 日誌第一行會印出「版本：main x | analyzer x | publish x」，用來確認跑的是新程式碼；
 出現 `?` 代表那個檔案還是舊版（沒有 `__version__`）。
-各檔案目前版本：main 為 1.8.0、episode／pipeline／topics 為 1.8.3、fetcher／trial／frame 為 1.8.2、tts 為 1.7.2（其餘 1.8.x 以各檔案內版本為準）、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
+各檔案目前版本：main 為 1.8.0、pipeline／topics／trial／version 為 1.8.4、episode 為 1.8.3、fetcher／frame 為 1.8.2、tts 為 1.7.3（其餘 1.8.x 以各檔案內版本為準）、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
 
 ---
+
+## [1.8.4] — 2026-11-06　依試跑 #15（v1.8.3，mp3 6:27）調整
+- 新增 `version.py`：整個專案只在這裡改發布版本；R2 文稿頁與說明欄的標題變成「本集新聞統計（v1.8.4）」。
+- trial：摘要最上面顯示發布版本，並對照 `version.py` 的 EXPECT，檔案漏傳或傳到舊版會出現警告。
+- pipeline：各組挑選則數增加 macro 5→6、ai 6→7、power 5→6、oil 2→3、telecom 4→5（共 34 則，只增加真實新聞，不灌水），目標約 7:30。
+- tts：估算係數微調為中文 0.215 秒／字、英數 0.085 秒／字（以 #15 實測 6:27 校正）。
 
 ## [1.8.3] — 2026-11-06　依試跑 #13（mp3 7:03）小修
 - tts：時長估算改為「中文字 0.21 秒＋英數字 0.083 秒」（以實測 7:03 校正；舊公式把英文名多的稿子高估）。
