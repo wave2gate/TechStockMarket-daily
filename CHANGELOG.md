@@ -5,7 +5,22 @@
 ② 在本檔最上方新增一段 ③ 一起 commit。
 Actions 日誌第一行會印出「版本：main x | analyzer x | publish x」，用來確認跑的是新程式碼；
 出現 `?` 代表那個檔案還是舊版（沒有 `__version__`）。
-各檔案目前版本：main／episode 為 1.8.0、pipeline／fetcher／topics／trial 為 1.8.1、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
+各檔案目前版本：main／episode 為 1.8.0、pipeline／fetcher／topics／trial／frame 為 1.8.2（其餘 1.8.x 以各檔案內版本為準）、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
+
+---
+
+## [1.8.2] — 2026-11-06　依第一次完整試跑（#12）修正
+試跑結果：7.3 分鐘、AI 稿 1599 字，防幻覺關卡只刪 1 句（且那句其實有依據），303 則新聞抓取正常，三家 AI 分工正常。發現並修正：
+- **統計表低估涵蓋數**：筆記是英文、稿子是中文，原本靠「字詞比對」找不到對應（例如油氣 3 則都有講卻顯示 0）。
+  改法：統稿時每則筆記有編號 N1…Nk，AI 在句號前加【N編號】；程式以標記為準（比對在審稿刪句之後，被刪的句子標記一起消失，所以統計準確），標記在朗讀前一律移除；AI 漏標時才退回字詞比對。
+- **分類誤判**：選舉相關股災新聞被分到「數據中心供電」、Tesla／SpaceX 市值新聞被分到太空。調整關鍵詞：移除泛用的 data center；新增市值／股災詞（market cap、selloff、rout…）與政策詞（moratorium、midterm、Democrat、lawmakers…）；電信新增 mobile network、Deutsche Telekom、Vodafone。
+- 新增「其他（X）」：沒有任何關鍵詞也沒有來源預設的新聞（例如電動車消費新聞）不再進任何筆記組；Electrek 取消預設細項。
+- **標題含 HTML**（FierceWireless 的 `<a href=…`）：標題一律去除標籤並還原字元。
+- **稿子念出標題式主題名**（「首先來看大盤宏觀財報政策的最新動態」）：統稿用較口語的主題名，並要求自然轉場。
+- **署名太長**：同一個模型負責的主題併成一句；Qwen 模型不再被寫成「Groq 平台上的開源模型」。
+- 筆記規則新增：不要抄錄訂閱、廣告、作者介紹等無關文字（Canary Media 的電子報導語曾被抄進背景欄）。
+- 已知小問題：AI 偶爾留下未翻譯的英文普通名詞（例如 lawmakers），先觀察；審稿員（Groq 備選模型）偶有誤刪有依據的句子，屬可接受的保守。
+- 更動檔案：`fetcher.py` `topics.py` `pipeline.py` `episode.py` `frame.py` `trial.py` `ARCHITECTURE.md` `CHANGELOG.md`。
 
 ---
 
