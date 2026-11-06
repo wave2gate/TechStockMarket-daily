@@ -5,9 +5,16 @@
 ② 在本檔最上方新增一段 ③ 一起 commit。
 Actions 日誌第一行會印出「版本：main x | analyzer x | publish x」，用來確認跑的是新程式碼；
 出現 `?` 代表那個檔案還是舊版（沒有 `__version__`）。
-各檔案目前版本：main／episode 為 1.8.0、pipeline／fetcher／topics／trial／frame 為 1.8.2（其餘 1.8.x 以各檔案內版本為準）、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
+各檔案目前版本：main 為 1.8.0、episode／pipeline／topics 為 1.8.3、fetcher／trial／frame 為 1.8.2、tts 為 1.7.2（其餘 1.8.x 以各檔案內版本為準）、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
 
 ---
+
+## [1.8.3] — 2026-11-06　依試跑 #13（mp3 7:03）小修
+- tts：時長估算改為「中文字 0.21 秒＋英數字 0.083 秒」（以實測 7:03 校正；舊公式把英文名多的稿子高估）。
+- pipeline：每組挑新聞時，先保證每個細項（例如機櫃散熱 S3）至少 2 則、不同來源優先，再輪流補滿；資安組 pick 3→4。
+- topics：Data Center Knowledge 來源提示 S3→B4（它多是電力／選址新聞，不全是散熱）。
+- episode：漏譯的常見英文名詞（lawmakers、investors 等）後處理換成中文；稿中殘留的小寫英文單字列在試跑摘要供觀察。
+- trial：版本號改為直接讀檔，不再因缺 boto3 顯示「main 載入失敗」。
 
 ## [1.8.2] — 2026-11-06　依第一次完整試跑（#12）修正
 試跑結果：7.3 分鐘、AI 稿 1599 字，防幻覺關卡只刪 1 句（且那句其實有依據），303 則新聞抓取正常，三家 AI 分工正常。發現並修正：
