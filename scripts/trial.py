@@ -1,5 +1,5 @@
 """
-試跑（v1.8.2）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
+試跑（v1.8.3）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
 但不做 TTS、不上傳、不改 feed、不 commit。結果寫進 Actions 的 Summary 頁。
 
 環境變數：
@@ -44,13 +44,15 @@ def main():
         r, err = None, f"{type(e).__name__}: {str(e)[:200]}"
     dt = time.time() - t0
 
-    import importlib
-    mods = []
-    for m in ("main", "episode", "pipeline", "analyzer", "guard", "frame", "numcheck", "market", "topics", "fetcher", "weekly"):
+    import re as _re, pathlib
+    mods = []                       # 直接讀檔案裡的版本號（不 import，避免缺套件造成誤報）
+    for m in ("main", "episode", "pipeline", "analyzer", "guard", "frame", "numcheck", "market", "topics", "fetcher", "weekly", "tts"):
         try:
-            mods.append(f"{m} {getattr(importlib.import_module(m), '__version__', '?')}")
-        except Exception as e:
-            mods.append(f"{m} 載入失敗({type(e).__name__})")
+            txt = (pathlib.Path(__file__).parent / f"{m}.py").read_text(encoding="utf-8")
+            v = _re.search(r'__version__\s*=\s*"([^"]+)"', txt)
+            mods.append(f"{m} {v.group(1) if v else '(無版本號)'}")
+        except FileNotFoundError:
+            mods.append(f"{m} 【檔案不存在】")
     out = [f"# 試跑結果（未發布）", "", "- 各模組版本：" + "、".join(mods),
            f"- 模式：**{mode}**　美東交易日：{slot}　假裝時間：{now:%Y-%m-%d %H:%M} UTC",
            f"- 版本：analyzer {analyzer.__version__} / pipeline {pipeline.__version__} / episode {episode.__version__}",
@@ -69,6 +71,8 @@ def main():
             out += ["", "## 被刪除的句子（防幻覺關卡）", ""]
             out += [f"- 【數字】{x['sentence']}（{x['numbers']}）" for x in rep.get("num_removed", [])]
             out += [f"- 【審稿員】{x['sentence']}" for x in rep.get("ai_removed", [])]
+        if r.get("english_words"):
+            out += ["", "## 稿中殘留的小寫英文單字（觀察用，之後可加進置換表）", "", "、".join(r["english_words"])]
         out += ["", "## 完整稿件（朗讀內容）", "", r["script"]]
     if r and r.get("stats"):
         out += ["", r["stats"]["md"]]

@@ -16,7 +16,7 @@ import logging, os, re, time
 import analyzer as A
 import topics as T
 
-__version__ = "1.8.2"
+__version__ = "1.8.3"
 log = logging.getLogger(__name__)
 
 # feed＝每組最多送給 AI 幾則素材（依來源輪流取，關注公司優先）；pick＝AI 挑出幾則筆記
@@ -28,7 +28,7 @@ GROUPS = [
     {"key": "space", "name": "太空與下一代通訊（衛星、6G、NGN、光通訊）", "buckets": ["A5", "A6", "A7"], "short": "太空與下一代通訊", "provider": "cloudflare",
      "pick": 3, "feed": 10, "max_out": 1400, "lang": "en"},
     {"key": "sec", "name": "資訊安全與數據中心基礎設施（網路安全、防駭、機櫃與散熱）", "buckets": ["S1", "S2", "S3"], "short": "資訊安全與數據中心設施", "provider": "gemini",
-     "pick": 3, "feed": 12, "max_out": 1800, "lang": "zh"},
+     "pick": 4, "feed": 12, "max_out": 1800, "lang": "zh"},
     {"key": "power", "name": "電力與電網（發電、輸配電設備、儲能、數據中心供電）", "buckets": ["B1", "B2", "B3", "B4"], "short": "電力與電網", "provider": "gemini",
      "pick": 5, "feed": 14, "max_out": 2400, "lang": "zh"},
     {"key": "oil", "name": "油氣與油價", "buckets": ["B5"], "short": "油氣與油價", "provider": "cloudflare",
@@ -89,6 +89,17 @@ def _group_block(items: list[dict], g: dict) -> tuple[str, int, list[dict]]:
     for it in sorted(pool, key=lambda x: not x.get("watch")):       # 關注公司優先
         by_src.setdefault(it.get("source", ""), []).append(it)
     chosen: list[dict] = []
+    # 先保證每個細項至少有 2 則（例如資安新聞量很大時，不會把機櫃散熱擠掉），不同來源優先
+    for b in g["buckets"]:
+        seen_src: set[str] = set()
+        for it in sorted([x for x in pool if x.get("bucket") == b], key=lambda x: not x.get("watch")):
+            if len([c for c in chosen if c.get("bucket") == b]) >= 2:
+                break
+            if it["source"] not in seen_src and it not in chosen:
+                chosen.append(it)
+                seen_src.add(it["source"])
+    for k in list(by_src):
+        by_src[k] = [x for x in by_src[k] if x not in chosen]
     i = 0
     while len(chosen) < g["feed"] and any(len(v) > i for v in by_src.values()):   # 依來源輪流取，避免被單一來源佔滿
         for v in by_src.values():

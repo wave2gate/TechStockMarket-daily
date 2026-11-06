@@ -8,7 +8,7 @@
 """
 import re
 
-__version__ = "1.8.2"
+__version__ = "1.8.3"
 
 WATCHLIST: list[str] = ["Palo Alto Networks", "Cloudflare", "Vertiv"]   # 選材優先（不是買賣建議）；之後可再增減
 
@@ -96,7 +96,7 @@ HINTS = {
     "POWER Magazine": "B1", "Canary Media": "B1", "Data Center Dynamics": "B4", "EIA Today in Energy": "B5",
     "OilPrice.com": "B5", "Rigzone": "B5",
     "Krebs on Security": "S1", "BleepingComputer": "S1", "The Hacker News": "S1", "SecurityWeek": "S1",
-    "Dark Reading": "S1", "CISA Advisories": "S1", "Data Center Knowledge": "S3",
+    "Dark Reading": "S1", "CISA Advisories": "S1", "Data Center Knowledge": "B4",
 }
 
 _COMPILED: dict[str, list[tuple[re.Pattern, float]]] = {}

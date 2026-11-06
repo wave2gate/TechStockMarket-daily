@@ -16,7 +16,7 @@ import re
 import topics as T
 
 log = logging.getLogger(__name__)
-__version__ = "1.8.2"
+__version__ = "1.8.3"
 
 MINIMAL_BODY = "這一集的新聞整理沒有順利完成。我們不憑空補充內容，新聞來源請參考文字版頁面的連結。"
 MIN_DAILY = guard.MIN_BODY_CHARS
@@ -25,6 +25,19 @@ MIN_OTHER = 100
 
 _STOP = {"the", "and", "for", "with", "from", "that", "this", "its", "has", "have", "are", "was", "will", "new", "over",
          "after", "into", "more", "than", "about", "amid", "says", "said"}
+
+
+_ZH_FIX = {"lawmakers": "議員", "lawmaker": "議員", "investors": "投資人", "regulators": "監管機構",
+           "analysts": "分析師", "executives": "高階主管", "shares": "股票", "stocks": "股票"}
+_KEEP_EN = {"million", "billion", "trillion", "thousand"}
+
+
+def _fix_english(body: str) -> tuple[str, list[str]]:
+    """把 AI 偶爾漏譯的常見英文普通名詞換成中文（只換小寫完整單字，不動公司名）；回傳殘留的小寫英文單字供觀察。"""
+    for en, zh in _ZH_FIX.items():
+        body = re.sub(rf"(?<![A-Za-z]){en}(?![A-Za-z])", zh, body)
+    left = sorted({w for w in re.findall(r"(?<![A-Za-z\-])[a-z]{4,}(?![A-Za-z])", body)} - _KEEP_EN)
+    return body, left
 
 
 MARK = r"[【\[（(]\s*N\d+(?:\s*[,、，/及和]\s*N?\d+)*\s*[】\]）)]"
@@ -132,6 +145,8 @@ def build(now: datetime, mode: str, items: list[dict], digest: str = "", trace: 
                 covered[r["bucket"]] = covered.get(r["bucket"], 0) + 1
         stats = T.render_stats(T.count_by_bucket(items), covered)
 
+    body, english_words = _fix_english(body)
+
     script = "\n\n".join([frame.opening(now, mode, slot), body, frame.closing(mode, used)])
     return {"script": script, "body": body, "used": used, "report": report, "slot": slot,
-            "mode": mode, "raw_len": raw_len, "pipe": pipe, "stats": stats, "cov_rows": cov_rows}
+            "mode": mode, "raw_len": raw_len, "pipe": pipe, "stats": stats, "cov_rows": cov_rows, "english_words": english_words}
