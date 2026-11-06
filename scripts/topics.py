@@ -8,7 +8,11 @@
 """
 import re
 
-__version__ = "1.8.3"
+__version__ = "1.8.4"
+try:
+    from version import RELEASE as _REL
+except Exception:                                  # 沒有 version.py 時不讓整個流程壞掉
+    _REL = "?"
 
 WATCHLIST: list[str] = ["Palo Alto Networks", "Cloudflare", "Vertiv"]   # 選材優先（不是買賣建議）；之後可再增減
 
@@ -144,9 +148,9 @@ def count_by_bucket(items) -> dict[str, int]:
 def render_stats(fetched: dict[str, int], covered: dict[str, int]) -> dict:
     total_c = sum(covered.values())
     total_f = sum(v for k, v in fetched.items() if k in NAMES)
-    md = ["## 本集新聞統計", "", f"本集稿件涵蓋 **{total_c}** 則新聞（依成稿比對）；今天各來源共抓到 {total_f} 則。", "",
+    md = [f"## 本集新聞統計（v{_REL}）", "", f"本集稿件涵蓋 **{total_c}** 則新聞（依成稿比對）；今天各來源共抓到 {total_f} 則。", "",
           "| 區塊 | 細項 | 本集涵蓋 | 抓到 |", "|---|---|---|---|"]
-    html = ["<h2>本集新聞統計</h2>",
+    html = [f"<h2>本集新聞統計（v{_REL}）</h2>",
             f"<p>本集稿件涵蓋 <strong>{total_c}</strong> 則新聞（依成稿比對）；今天各來源共抓到 {total_f} 則。</p>",
             "<table><thead><tr><th>區塊</th><th>細項</th><th>本集涵蓋</th><th>抓到</th></tr></thead><tbody>"]
     line_parts = []

@@ -1,7 +1,7 @@
 """
 TTS：Edge TTS 台灣女聲，返回音頻時長（秒）
 """
-__version__ = "1.7.2"
+__version__ = "1.7.3"
 import asyncio, logging, re
 from pathlib import Path
 
@@ -34,6 +34,6 @@ async def to_mp3(script: str, out_path: str) -> int:
     # 中文字約 4.8 字/秒，英數字（公司名、金額單位）念得快得多：依兩種字元分開估算（以實測 7:03 校正）
     cjk = len(re.findall(r"[\u3400-\u9fff\u3000-\u303f\uff00-\uffef]", clean))
     asc = len(re.findall(r"[A-Za-z0-9]", clean))
-    duration = int(cjk * 0.21 + asc * 0.083)   # 估算秒數
+    duration = int(cjk * 0.215 + asc * 0.085)   # 估算秒數
     log.info(f"   TTS: {char_cnt} 字 → {size_kb} KB，估算 {duration//60}分{duration%60}秒")
     return duration

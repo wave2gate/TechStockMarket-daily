@@ -1,5 +1,5 @@
 """
-試跑（v1.8.3）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
+試跑（v1.8.4）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
 但不做 TTS、不上傳、不改 feed、不 commit。結果寫進 Actions 的 Summary 頁。
 
 環境變數：
@@ -53,7 +53,24 @@ def main():
             mods.append(f"{m} {v.group(1) if v else '(無版本號)'}")
         except FileNotFoundError:
             mods.append(f"{m} 【檔案不存在】")
-    out = [f"# 試跑結果（未發布）", "", "- 各模組版本：" + "、".join(mods),
+    warn = []                       # 對照 version.py 的 EXPECT：不一致＝有檔案漏傳或傳到舊版
+    try:
+        vt = (pathlib.Path(__file__).parent / "version.py").read_text(encoding="utf-8")
+        rel = _re.search(r'RELEASE\s*=\s*"([^"]+)"', vt).group(1)
+        exp = dict(_re.findall(r'"(\w+)":\s*"([^"]+)"', vt.split("EXPECT", 1)[1]))
+        have = dict(m.split(" ", 1) for m in mods if " " in m)
+        for k, v in exp.items():
+            if k == "version":
+                continue
+            if have.get(k, "").strip() != v:
+                warn.append(f"{k}.py 應為 {v}，實際是 {have.get(k, '找不到')}")
+    except Exception as e:
+        rel = "?"
+        warn.append(f"找不到或讀不懂 version.py（{type(e).__name__}）：這代表 1.8.4 的檔案沒傳齊")
+    out = [f"# 試跑結果（未發布）　發布版本 v{rel}", ""]
+    if warn:
+        out += ["## ⚠️ 版本不一致（先補傳檔案再看結果）", ""] + [f"- {w}" for w in warn] + [""]
+    out += ["- 各模組版本：" + "、".join(mods),
            f"- 模式：**{mode}**　美東交易日：{slot}　假裝時間：{now:%Y-%m-%d %H:%M} UTC",
            f"- 版本：analyzer {analyzer.__version__} / pipeline {pipeline.__version__} / episode {episode.__version__}",
            f"- 耗時：{dt:.0f} 秒"]

@@ -16,25 +16,25 @@ import logging, os, re, time
 import analyzer as A
 import topics as T
 
-__version__ = "1.8.3"
+__version__ = "1.8.4"
 log = logging.getLogger(__name__)
 
 # feed＝每組最多送給 AI 幾則素材（依來源輪流取，關注公司優先）；pick＝AI 挑出幾則筆記
 GROUPS = [
     {"key": "macro", "name": "大盤、宏觀、財報與政策", "buckets": ["C1", "C2", "C3"], "short": "大盤與總體經濟", "provider": "gemini",
-     "pick": 5, "feed": 14, "max_out": 2400, "lang": "zh"},
+     "pick": 6, "feed": 14, "max_out": 2600, "lang": "zh"},
     {"key": "ai", "name": "AI 與半導體（晶片、記憶體、製造、雲端資本支出）", "buckets": ["A1", "A2", "A3", "A4"], "short": "AI 與半導體", "provider": "groq",
-     "pick": 6, "feed": 14, "max_out": 2400, "lang": "zh"},
+     "pick": 7, "feed": 14, "max_out": 2800, "lang": "zh"},
     {"key": "space", "name": "太空與下一代通訊（衛星、6G、NGN、光通訊）", "buckets": ["A5", "A6", "A7"], "short": "太空與下一代通訊", "provider": "cloudflare",
      "pick": 3, "feed": 10, "max_out": 1400, "lang": "en"},
     {"key": "sec", "name": "資訊安全與數據中心基礎設施（網路安全、防駭、機櫃與散熱）", "buckets": ["S1", "S2", "S3"], "short": "資訊安全與數據中心設施", "provider": "gemini",
      "pick": 4, "feed": 12, "max_out": 1800, "lang": "zh"},
     {"key": "power", "name": "電力與電網（發電、輸配電設備、儲能、數據中心供電）", "buckets": ["B1", "B2", "B3", "B4"], "short": "電力與電網", "provider": "gemini",
-     "pick": 5, "feed": 14, "max_out": 2400, "lang": "zh"},
+     "pick": 6, "feed": 14, "max_out": 2600, "lang": "zh"},
     {"key": "oil", "name": "油氣與油價", "buckets": ["B5"], "short": "油氣與油價", "provider": "cloudflare",
-     "pick": 2, "feed": 8, "max_out": 1200, "lang": "en"},
+     "pick": 3, "feed": 10, "max_out": 1600, "lang": "en"},
     {"key": "telecom", "name": "電信運營商與供應鏈", "buckets": ["B6", "B7"], "short": "電信運營商與供應鏈", "provider": "groq",
-     "pick": 4, "feed": 10, "max_out": 1800, "lang": "zh"},
+     "pick": 5, "feed": 12, "max_out": 2200, "lang": "zh"},
 ]
 MIN_GROUPS = 3
 _GAP = {"groq": 20}            # 同一家連續呼叫之間至少間隔幾秒（Groq 免費層每分鐘 token 有限）
