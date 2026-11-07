@@ -1,5 +1,5 @@
 """
-試跑（v1.8.4）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
+試跑（v1.9.0）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
 但不做 TTS、不上傳、不改 feed、不 commit。結果寫進 Actions 的 Summary 頁。
 
 環境變數：
@@ -45,8 +45,13 @@ def main():
     dt = time.time() - t0
 
     import re as _re, pathlib
+
+    def _est_min(text: str) -> str:          # 與 tts.py 相同的估算（中文 0.223 秒／字、英數 0.088 秒／字）
+        s = int(len(_re.findall(r"[\u3400-\u9fff\u3000-\u303f\uff00-\uffef]", text)) * 0.223
+                + len(_re.findall(r"[A-Za-z0-9]", text)) * 0.088)
+        return f"{s // 60} 分 {s % 60} 秒"
     mods = []                       # 直接讀檔案裡的版本號（不 import，避免缺套件造成誤報）
-    for m in ("main", "episode", "pipeline", "analyzer", "guard", "frame", "numcheck", "market", "topics", "fetcher", "weekly", "tts"):
+    for m in ("main", "episode", "pipeline", "analyzer", "guard", "frame", "numcheck", "market", "topics", "fetcher", "weekly", "tts", "watchlist", "prices"):
         try:
             txt = (pathlib.Path(__file__).parent / f"{m}.py").read_text(encoding="utf-8")
             v = _re.search(r'__version__\s*=\s*"([^"]+)"', txt)
@@ -66,7 +71,7 @@ def main():
                 warn.append(f"{k}.py 應為 {v}，實際是 {have.get(k, '找不到')}")
     except Exception as e:
         rel = "?"
-        warn.append(f"找不到或讀不懂 version.py（{type(e).__name__}）：這代表 1.8.4 的檔案沒傳齊")
+        warn.append(f"找不到或讀不懂 version.py（{type(e).__name__}）：這代表新版檔案沒傳齊")
     out = [f"# 試跑結果（未發布）　發布版本 v{rel}", ""]
     if warn:
         out += ["## ⚠️ 版本不一致（先補傳檔案再看結果）", ""] + [f"- {w}" for w in warn] + [""]
@@ -79,7 +84,7 @@ def main():
     else:
         u = r["used"]
         out += [f"- AI 原稿 {r['raw_len']} 字 → 清理後主體 {len(r['body'])} 字 → 全稿 {len(r['script'])} 字"
-                f"（約 {len(r['script'])/300:.1f} 分鐘）",
+                f"（約 {_est_min(r['script'])}）",
                 f"- 審稿狀態：{u['audit_status']}；審稿員：{u['auditor']}；刪除句數：{u['removed']}；保底稿：{u['safe_mode']}",
                 f"- 統稿：{u['writer']}"]
         out += ["", "## 各組筆記提供商", ""] + [f"- {g['name']}：{g['provider']}（{g['model']}）" for g in u["groups"]]
@@ -95,6 +100,12 @@ def main():
         out += ["", r["stats"]["md"]]
         out += ["", "## 每則筆記是否進入成稿", ""] + [
             f"- {'✅' if c['covered'] else '❌'} [{c['bucket']}] ({c['source']}) {c['fact'][:110]}" for c in r["cov_rows"]]
+    if os.environ.get("TRIAL_PRICES", "1") == "1":
+        try:
+            import prices
+            out += ["", prices.render_md(prices.run())]
+        except Exception as e:
+            out += ["", f"## 價格試驗失敗：{type(e).__name__}: {str(e)[:150]}"]
     out += ["", "## 抓到的新聞分類結果（每個細項的標題）", ""]
     for k in topics.PRIORITY:
         ts = [it for it in items if it.get("bucket") == k]

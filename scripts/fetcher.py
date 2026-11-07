@@ -3,7 +3,7 @@
 新增官方來源：聯準會、勞工統計局；Google News RSS 只當作標題備援（無摘要）。
 新網址未必都有效，試跑 Summary 的「來源診斷」會逐一列出。
 """
-__version__ = "1.8.2"
+__version__ = "1.9.0"
 import html as _html, re, time, logging
 from datetime import datetime, timedelta, timezone
 
@@ -121,6 +121,12 @@ SOURCES += [
     ("Dark Reading",              "https://www.darkreading.com/rss.xml"),
     ("CISA Advisories",           "https://www.cisa.gov/cybersecurity-advisories/all.xml"),
     ("Data Center Knowledge",     "https://www.datacenterknowledge.com/rss.xml"),
+    ("The Record",                "https://therecord.media/feed"),
+    ("Microsoft Security",        "https://www.microsoft.com/en-us/security/blog/feed/"),
+    # 貴金屬與關鍵礦產（v1.9.0，網址未驗證，以試跑「來源診斷」為準）
+    ("Mining.com",                "https://www.mining.com/feed/"),
+    ("Kitco",                     "https://www.kitco.com/rss/KitcoNews.xml"),
+    ("Northern Miner",            "https://www.northernminer.com/feed/"),
 ]
 # Google News 關鍵字搜尋（公開 RSS，只有標題；補專門主題的缺口）。標籤以「Google News｜」開頭，摘要不使用。
 GNEWS_TOPICS = [
@@ -137,6 +143,11 @@ GNEWS_TOPICS = [
     ("資安與駭客事件", "cyberattack+OR+ransomware+OR+%22zero-day%22+OR+%22data+breach%22", "S1"),
     ("資安公司",       "%22Palo+Alto+Networks%22+OR+CrowdStrike+OR+Zscaler+OR+Cloudflare+OR+Fortinet", "S1"),
     ("機櫃與散熱",     "%22data+center%22+cooling+OR+Vertiv+OR+%22liquid+cooling%22+OR+nVent", "S3"),
+    ("重大駭客與加密貨幣盜竊", "%22crypto%22+hack+OR+%22exchange+hack%22+OR+%22stolen+crypto%22+OR+%22crypto+theft%22", "S1"),
+    ("上市公司資安事件", "%22data+breach%22+OR+ransomware+company+shares+OR+%228-K%22+cybersecurity+incident", "S1"),
+    ("貴金屬",         "gold+price+OR+silver+price+OR+%22precious+metals%22", "M1"),
+    ("銅與關鍵礦產",   "copper+price+OR+%22rare+earth%22+OR+%22critical+minerals%22+OR+lithium+miner", "M2"),
+    ("鈾與核燃料",     "uranium+OR+Cameco+OR+Centrus+OR+%22nuclear+fuel%22", "M3"),
     ("數據中心樓控與工控攻擊", "%22data+center%22+HVAC+OR+SCADA+OR+%22cooling+system%22+cyberattack+OR+hack", "S3"),
 ]
 for _n, _q, _h in GNEWS_TOPICS:
@@ -158,11 +169,15 @@ FALLBACKS = {
     "Investopedia":      [_gnews("site:investopedia.com")],
     "SDxCentral":        [_gnews("site:sdxcentral.com")],
     "Federal Reserve":   ["https://www.federalreserve.gov/feeds/press_monetary.xml"],
+    "Mining.com":        [_gnews("site:mining.com")],
+    "Kitco":             [_gnews("site:kitco.com")],
+    "Northern Miner":    [_gnews("site:northernminer.com")],
+    "The Record":        [_gnews("site:therecord.media")],
 }
 TIMEOUT = {"Nasdaq": 30}
 MAX_AGE_H.update({"Krebs on Security": 72, "BleepingComputer": 36, "The Hacker News": 36, "SecurityWeek": 48, "Dark Reading": 48,
                   "CISA Advisories": 168, "Data Center Knowledge": 72, "Semiconductor Engineering": 48, "EE Times": 48, "SpaceNews": 48, "Via Satellite": 72, "POWER Magazine": 72,
-                  "Canary Media": 72, "Data Center Dynamics": 48, "EIA Today in Energy": 168, "OilPrice.com": 36, "Rigzone": 36,"Federal Reserve": 240, "BLS": 240, "Utility Dive": 48, "Electrek": 36, "Mobile World Live": 72})
+                  "Mining.com": 36, "Kitco": 36, "Northern Miner": 72, "The Record": 48, "Microsoft Security": 168, "Canary Media": 72, "Data Center Dynamics": 48, "EIA Today in Energy": 168, "OilPrice.com": 36, "Rigzone": 36,"Federal Reserve": 240, "BLS": 240, "Utility Dive": 48, "Electrek": 36, "Mobile World Live": 72})
 
 
 def _parse(url: str, label: str) -> list[dict]:

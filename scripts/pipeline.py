@@ -16,25 +16,27 @@ import logging, os, re, time
 import analyzer as A
 import topics as T
 
-__version__ = "1.8.4"
+__version__ = "1.9.0"
 log = logging.getLogger(__name__)
 
 # feed＝每組最多送給 AI 幾則素材（依來源輪流取，關注公司優先）；pick＝AI 挑出幾則筆記
 GROUPS = [
     {"key": "macro", "name": "大盤、宏觀、財報與政策", "buckets": ["C1", "C2", "C3"], "short": "大盤與總體經濟", "provider": "gemini",
-     "pick": 6, "feed": 14, "max_out": 2600, "lang": "zh"},
+     "pick": 5, "feed": 14, "max_out": 2400, "lang": "zh"},
     {"key": "ai", "name": "AI 與半導體（晶片、記憶體、製造、雲端資本支出）", "buckets": ["A1", "A2", "A3", "A4"], "short": "AI 與半導體", "provider": "groq",
-     "pick": 7, "feed": 14, "max_out": 2800, "lang": "zh"},
+     "pick": 6, "feed": 14, "max_out": 2600, "lang": "zh"},
     {"key": "space", "name": "太空與下一代通訊（衛星、6G、NGN、光通訊）", "buckets": ["A5", "A6", "A7"], "short": "太空與下一代通訊", "provider": "cloudflare",
      "pick": 3, "feed": 10, "max_out": 1400, "lang": "en"},
-    {"key": "sec", "name": "資訊安全與數據中心基礎設施（網路安全、防駭、機櫃與散熱）", "buckets": ["S1", "S2", "S3"], "short": "資訊安全與數據中心設施", "provider": "gemini",
+    {"key": "sec", "name": "資訊安全與數據中心基礎設施（網路安全、重大駭客與加密貨幣盜竊、機櫃與散熱）", "buckets": ["S1", "S2", "S3"], "short": "資訊安全與數據中心設施", "provider": "gemini",
      "pick": 4, "feed": 12, "max_out": 1800, "lang": "zh"},
-    {"key": "power", "name": "電力與電網（發電、輸配電設備、儲能、數據中心供電）", "buckets": ["B1", "B2", "B3", "B4"], "short": "電力與電網", "provider": "gemini",
-     "pick": 6, "feed": 14, "max_out": 2600, "lang": "zh"},
-    {"key": "oil", "name": "油氣與油價", "buckets": ["B5"], "short": "油氣與油價", "provider": "cloudflare",
-     "pick": 3, "feed": 10, "max_out": 1600, "lang": "en"},
     {"key": "telecom", "name": "電信運營商與供應鏈", "buckets": ["B6", "B7"], "short": "電信運營商與供應鏈", "provider": "groq",
      "pick": 5, "feed": 12, "max_out": 2200, "lang": "zh"},
+    {"key": "power", "name": "電力與電網（發電、輸配電設備、儲能、數據中心供電）", "buckets": ["B1", "B2", "B3", "B4"], "short": "電力與電網", "provider": "gemini",
+     "pick": 5, "feed": 14, "max_out": 2400, "lang": "zh"},
+    {"key": "oil", "name": "油氣與油價", "buckets": ["B5"], "short": "油氣與油價", "provider": "cloudflare",
+     "pick": 3, "feed": 10, "max_out": 1600, "lang": "en"},
+    {"key": "metals", "name": "貴金屬與關鍵礦產（黃金白銀、銅與稀土、鈾）", "buckets": ["M1", "M2", "M3"], "short": "貴金屬與關鍵礦產", "provider": "groq",
+     "pick": 3, "feed": 10, "max_out": 1600, "lang": "en"},
 ]
 MIN_GROUPS = 3
 _GAP = {"groq": 20}            # 同一家連續呼叫之間至少間隔幾秒（Groq 免費層每分鐘 token 有限）
@@ -63,14 +65,14 @@ Rules:
 - Fact: one sentence using ONLY what the item says; copy numbers and names exactly.
 - Background: only if the item itself states it; otherwise write "none". Never add outside knowledge.
 - Possible impact: only if the item itself states it; otherwise write "none". Never speculate.
-- One line per event. Skip items unrelated to US stocks, tech, macro, power/energy, oil & gas, space, telecom or cybersecurity.
+- One line per event. Skip items unrelated to US stocks, tech, macro, power/energy, oil & gas, space, telecom, cybersecurity (including major hacks of listed companies or crypto thefts), or precious metals and critical minerals (gold, silver, copper, rare earths, uranium).
 - Keep amounts exactly as written in the item (US dollars). Skip amounts marked （非美元金額）.
 - Neutral tone; no price predictions; no buy/sell advice."""
 
 SYSTEM_COMPOSE = """你是一位專業的台灣財經播客主持人，聲音沉穩、邏輯清晰。
 下面是編輯整理好的新聞筆記，分成幾個主題。請把它們寫成廣播播報稿的主體。
 結構：先用一小段（兩到四句）概述今天筆記裡的主要脈絡；再依下面的主題順序逐段說明，沒有筆記的主題整段略過：
-大盤與總體經濟 → AI 與半導體 → 太空與下一代通訊 → 資訊安全與數據中心設施 → 電力與電網 → 油氣與油價 → 電信運營商與供應鏈。
+大盤與總體經濟 → AI 與半導體 → 太空與下一代通訊 → 資訊安全與數據中心設施 → 電信運營商與供應鏈 → 電力與電網 → 油氣與油價 → 貴金屬與關鍵礦產。
 轉場時用自然的口語帶出主題（例如「接下來看 AI 與半導體」），不要把主題名稱當成標題一個字一個字念出來。
 每一則筆記都要提到（同一事件的多條筆記可合併成一則），不要遺漏；每則先說事實，再說筆記中的背景與可能影響，用自然的句子帶出。
 筆記寫「無」或 none 的欄位就不要講，不要自己補。不要說「積極」「保守」這類讀者標籤。

@@ -8,13 +8,17 @@
 """
 import re
 
-__version__ = "1.8.4"
+__version__ = "1.9.0"
 try:
     from version import RELEASE as _REL
 except Exception:                                  # 沒有 version.py 時不讓整個流程壞掉
     _REL = "?"
 
-WATCHLIST: list[str] = ["Palo Alto Networks", "Cloudflare", "Vertiv"]   # 選材優先（不是買賣建議）；之後可再增減
+try:
+    from watchlist import news_keywords as _nk
+    WATCHLIST: list[str] = _nk()                 # 選材優先（不是買賣建議）；清單在 watchlist.py
+except Exception:
+    WATCHLIST = ["Palo Alto Networks", "Cloudflare", "Vertiv"]
 
 # 區塊 → 細項。順序也是稿子與統計表的順序。
 SECTIONS = [
@@ -24,15 +28,16 @@ SECTIONS = [
     ("太空與下一代通訊", [("A5", "光通訊與資料中心互連"), ("A6", "衛星、航太與太空"), ("A7", "6G 與下一代網路（NGN）")]),
     ("資安與數據中心基礎設施", [("S1", "網路與通訊安全（駭客、勒索、漏洞）"), ("S2", "軟硬體與供應鏈安全"),
                       ("S3", "數據中心機櫃、散熱與樓控／工控安全")]),
+    ("電信", [("B6", "電信運營商"), ("B7", "電信設備與供應鏈")]),
     ("電力與電網", [("B1", "發電與公用事業"), ("B2", "電網與輸配電設備"), ("B3", "儲能與電池"),
                   ("B4", "數據中心供電")]),
     ("油氣", [("B5", "石油與天然氣")]),
-    ("電信", [("B6", "電信運營商"), ("B7", "電信設備與供應鏈")]),
+    ("貴金屬與關鍵礦產", [("M1", "貴金屬（黃金、白銀、鉑）"), ("M2", "銅與關鍵礦產（稀土、鋰、鎳、鈷）"), ("M3", "鈾與核燃料")]),
 ]
 NAMES = {k: n for _, subs in SECTIONS for k, n in subs}
 
 # 越前面的細項，同分時越優先（具體的在前、泛用的在後）
-PRIORITY = ["S3", "S1", "S2", "B2", "B4", "B3", "B1", "B5", "A2", "A1", "A3", "A5", "A6", "A7", "A4", "B6", "B7", "C3", "C2", "C1"]
+PRIORITY = ["S3", "S1", "S2", "M3", "M2", "M1", "B2", "B4", "B3", "B1", "B5", "A2", "A1", "A3", "A5", "A6", "A7", "A4", "B6", "B7", "C3", "C2", "C1"]
 
 BUCKETS: dict[str, dict] = {
     "C1": {"w": 0.5, "kw": ["federal reserve", "fed ", "fomc", "powell", "market cap", "market value", "selloff", "sell-off", "rout", "tumbles", "plunge", "wipeout", "futures", "rate cut", "rate hike", "inflation", "cpi", "pce",
@@ -62,7 +67,7 @@ BUCKETS: dict[str, dict] = {
     "S1": {"w": 1.3, "kw": ["cyberattack", "cyber attack", "cyberattacks", "hacker", "hackers", "hacked", "breach", "ransomware",
                             "zero-day", "vulnerability", "vulnerabilities", "cve-", "exploit", "malware", "phishing", "ddos",
                             "zero trust", "sase", "firewall", "palo alto", "crowdstrike", "zscaler", "fortinet", "okta",
-                            "sentinelone", "cloudflare", "cisa", "botnet", "espionage", "salt typhoon", "volt typhoon",
+                            "sentinelone", "cloudflare", "cisa", "botnet", "crypto hack", "exchange hack", "crypto theft", "stolen crypto", "drained", "lazarus", "north korea", "dprk", "8-k cyber", "data breach", "stolen data", "espionage", "salt typhoon", "volt typhoon",
                             "encryption", "post-quantum", "cybersecurity", "security flaw", "threat actor"]},
     "S2": {"w": 1.2, "kw": ["firmware", "supply chain attack", "software supply chain", "hardware security", "chip vulnerability",
                             "spectre", "side-channel", "secure boot", "backdoor", "vpn", "edge device", "tpm",
@@ -71,6 +76,15 @@ BUCKETS: dict[str, dict] = {
                             "schneider electric", "building management", "scada", "ot security", "industrial control",
                             "water cooling", "cooling system", "power distribution unit", "pdu", "server rack", "rack-level",
                             "immersion cooling"]},
+    "M1": {"w": 1.3, "kw": ["gold price", "gold prices", "gold", "silver", "platinum", "palladium", "bullion", "precious metal",
+                            "precious metals", "gold miner", "newmont", "barrick", "agnico", "kinross", "wheaton", "royal gold",
+                            "franco-nevada", "hecla", "coeur", "pan american silver", "safe haven", "safe-haven"]},
+    "M2": {"w": 1.4, "kw": ["copper", "rare earth", "rare earths", "critical mineral", "critical minerals", "nickel", "cobalt",
+                            "graphite", "gallium", "germanium", "antimony", "tungsten", "freeport", "southern copper",
+                            "mp materials", "albemarle", "lithium price", "spodumene", "mining", "miner ", "magnet supply",
+                            "rio tinto", "bhp", "teck", "glencore", "mine "]},
+    "M3": {"w": 1.5, "kw": ["uranium", "enrichment", "enriched uranium", "haleu", "nuclear fuel", "cameco", "centrus", "energy fuels",
+                            "yellowcake", "uranium price"]},
     "B1": {"w": 1.0, "kw": ["utility", "utilities", "power plant", "nuclear", "smr", "uprate", "gas-fired", "solar", "wind farm",
                             "renewable", "generation", "coal", "ppa", "rate case", "dominion", "nextera", "vistra",
                             "constellation energy", "geothermal"]},
@@ -100,7 +114,8 @@ HINTS = {
     "POWER Magazine": "B1", "Canary Media": "B1", "Data Center Dynamics": "B4", "EIA Today in Energy": "B5",
     "OilPrice.com": "B5", "Rigzone": "B5",
     "Krebs on Security": "S1", "BleepingComputer": "S1", "The Hacker News": "S1", "SecurityWeek": "S1",
-    "Dark Reading": "S1", "CISA Advisories": "S1", "Data Center Knowledge": "B4",
+    "Dark Reading": "S1", "CISA Advisories": "S1", "Data Center Knowledge": "B4", "The Record": "S1", "Microsoft Security": "S1",
+    "Kitco": "M1", "Northern Miner": "M1",
 }
 
 _COMPILED: dict[str, list[tuple[re.Pattern, float]]] = {}
