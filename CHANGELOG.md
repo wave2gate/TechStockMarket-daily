@@ -5,9 +5,17 @@
 ② 在本檔最上方新增一段 ③ 一起 commit。
 Actions 日誌第一行會印出「版本：main x | analyzer x | publish x」，用來確認跑的是新程式碼；
 出現 `?` 代表那個檔案還是舊版（沒有 `__version__`）。
-各檔案目前版本：main 為 1.8.0、pipeline／topics／trial／version 為 1.8.4、episode 為 1.8.3、fetcher／frame 為 1.8.2、tts 為 1.7.3（其餘 1.8.x 以各檔案內版本為準）、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
+各檔案目前版本：main 為 1.8.0、pipeline／topics／fetcher／trial／version／watchlist／prices 為 1.9.0、episode 為 1.8.3、frame 為 1.8.2、tts 為 1.7.4（其餘 1.8.x 以各檔案內版本為準）、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
 
 ---
+
+## [1.9.0] — 2026-11-07　依試跑 #16（v1.8.4，mp3 7:51）擴充
+- 順序：電信移到電力前面；新增「貴金屬與關鍵礦產」放最後（細項：貴金屬、銅與關鍵礦產、鈾與核燃料）。總則數維持 34（大盤 5、AI 6、太空 3、資安 4、電信 5、電力 5、油氣 3、貴金屬礦產 3），時長目標約 8 分鐘。
+- fetcher：新增來源 Mining.com、Kitco、Northern Miner、The Record、Microsoft Security（網址未驗證，看試跑「來源診斷」）；Google News 主題備援新增貴金屬、銅與關鍵礦產、鈾、重大駭客與加密貨幣盜竊、上市公司資安事件。
+- topics：新增 M1–M3 關鍵詞；資安關鍵詞加入加密貨幣盜竊與重大資料外洩（不特別追北韓）；觀察列表改由 watchlist.py 提供。
+- 新增 watchlist.py（觀察列表起始清單，含定投大盤 ETF、大盤權重股、各分類 ETF 與個股；你之後貼清單我再幫你整理）。
+- 新增 prices.py：滾動 21 個交易日收盤高低點與各分類 ETF 近 21 日漲跌；**只在試跑顯示，未進節目稿**；資料來源（Yahoo 圖表介面→Stooq）尚未在雲端驗證。
+- tts：估算係數再校正為 0.223／0.088（#16 實測 7:51）；trial 的「約幾分鐘」改用同一公式。
 
 ## [1.8.4] — 2026-11-06　依試跑 #15（v1.8.3，mp3 6:27）調整
 - 新增 `version.py`：整個專案只在這裡改發布版本；R2 文稿頁與說明欄的標題變成「本集新聞統計（v1.8.4）」。
