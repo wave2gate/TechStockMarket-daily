@@ -8,7 +8,7 @@
 """
 import re
 
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 try:
     from version import RELEASE as _REL
 except Exception:                                  # 沒有 version.py 時不讓整個流程壞掉
@@ -48,7 +48,7 @@ BUCKETS: dict[str, dict] = {
     "C3": {"w": 0.8, "kw": ["export control", "tariff", "sanction", "antitrust", "regulator", "fcc", "sec ", "chips act",
                             "executive order", "subsidy", "ban on", "lawsuit", "congress", "moratorium", "midterm", "democrat", "republican",
                             "lawmakers", "white house", "regulation", "legislation"]},
-    "A1": {"w": 1.0, "kw": ["gpu", "nvidia", "amd", "ai chip", "accelerator", "blackwell", "rubin", "custom silicon", "asic",
+    "A1": {"w": 1.0, "kw": ["quantum", "gpu", "nvidia", "amd", "ai chip", "accelerator", "blackwell", "rubin", "custom silicon", "asic",
                             "tpu", "trainium", "inference", "broadcom", "supercomputer", "ai server", "super micro"]},
     "A2": {"w": 1.2, "kw": ["hbm", "dram", "nand", "memory chip", "memory", "micron", "sk hynix", "samsung electronics",
                             "sandisk", "kioxia", "flash storage", "western digital", "seagate"]},
@@ -59,7 +59,7 @@ BUCKETS: dict[str, dict] = {
                             "google cloud", "oracle cloud", "llm", "copilot", "ai model", "generative ai", "cloud"]},
     "A5": {"w": 1.2, "kw": ["optical", "optics", "transceiver", "photonic", "co-packaged", "lumentum", "coherent",
                             "marvell", "interconnect", "800g", "1.6t", "indium phosphide", "inp "]},
-    "A6": {"w": 1.2, "kw": ["satellite", "spacex", "starlink", "starship", "rocket", "launch", "orbit", "leo ",
+    "A6": {"w": 1.2, "kw": ["satellite", "spacex", "starlink", "starship", "rocket", "rocket launch", "launch vehicle", "orbit", "leo ",
                             "direct-to-cell", "ast spacemobile", "rocket lab", "kuiper", "blue origin", "nasa",
                             "aerospace", "space station", "lunar", "spacecraft"]},
     "A7": {"w": 1.3, "kw": ["6g", "5g-advanced", "5g advanced", "ngn", "next-generation network", "open ran", "o-ran",
@@ -76,7 +76,8 @@ BUCKETS: dict[str, dict] = {
                             "schneider electric", "building management", "scada", "ot security", "industrial control",
                             "water cooling", "cooling system", "power distribution unit", "pdu", "server rack", "rack-level",
                             "immersion cooling"]},
-    "M1": {"w": 1.3, "kw": ["gold price", "gold prices", "gold", "silver", "platinum", "palladium", "bullion", "precious metal",
+    "M1": {"w": 1.3, "kw": ["gold price", "gold prices", "gold futures", "gold miners", "gold mining", "gold mine", "gold rally", "gold hits",
+                            "gold falls", "gold slips", "gold surges", "silver price", "silver prices", "silver futures", "platinum", "palladium", "bullion", "precious metal",
                             "precious metals", "gold miner", "newmont", "barrick", "agnico", "kinross", "wheaton", "royal gold",
                             "franco-nevada", "hecla", "coeur", "pan american silver", "safe haven", "safe-haven"]},
     "M2": {"w": 1.4, "kw": ["copper", "rare earth", "rare earths", "critical mineral", "critical minerals", "nickel", "cobalt",
@@ -85,7 +86,7 @@ BUCKETS: dict[str, dict] = {
                             "rio tinto", "bhp", "teck", "glencore", "mine "]},
     "M3": {"w": 1.5, "kw": ["uranium", "enrichment", "enriched uranium", "haleu", "nuclear fuel", "cameco", "centrus", "energy fuels",
                             "yellowcake", "uranium price"]},
-    "B1": {"w": 1.0, "kw": ["utility", "utilities", "power plant", "nuclear", "smr", "uprate", "gas-fired", "solar", "wind farm",
+    "B1": {"w": 1.0, "kw": ["duke energy", "natural gas generation", "gas generation", "spending plan", "capital plan", "rate base", "utility", "utilities", "power plant", "nuclear", "smr", "uprate", "gas-fired", "solar", "wind farm",
                             "renewable", "generation", "coal", "ppa", "rate case", "dominion", "nextera", "vistra",
                             "constellation energy", "geothermal"]},
     "B2": {"w": 1.4, "kw": ["transformer", "grid", "transmission line", "transmission", "substation", "switchgear",

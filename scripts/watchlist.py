@@ -6,7 +6,7 @@
   類型：etf＝指數型基金（看趨勢）／heavy＝大盤權重股（占比高，值得注意）／stock＝一般個股／fav＝你特別看好
 這份是我依你描述的方向先挑的起始清單，你之後貼自己的清單，我再幫你分類整理。
 """
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 
 WATCH: dict[str, tuple[str | None, str, str]] = {
     # 定投與大盤（每週定投參考）
@@ -45,6 +45,11 @@ WATCH: dict[str, tuple[str | None, str, str]] = {
     "NEM": ("Newmont", "stock", "貴金屬與關鍵礦產"), "FCX": ("Freeport-McMoRan", "stock", "貴金屬與關鍵礦產"),
     "MP": ("MP Materials", "stock", "貴金屬與關鍵礦產"), "CCJ": ("Cameco", "stock", "貴金屬與關鍵礦產"),
 }
+
+
+# 口播用：每個分類挑哪幾檔指數型基金代表（其餘只放在 R2 文稿頁的表格）。順序＝播報順序。
+LEAD = [("大盤", ["SPY", "QQQ"]), ("AI 與半導體", ["SMH"]), ("太空與下一代通訊", ["UFO"]), ("資安與數據中心", ["CIBR"]),
+        ("電信", ["IYZ"]), ("電力與電網", ["XLU"]), ("油氣", ["XLE"]), ("貴金屬與關鍵礦產", ["GLD", "COPX"])]
 
 
 def news_keywords() -> list[str]:

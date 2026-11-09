@@ -16,7 +16,7 @@ import re
 import topics as T
 
 log = logging.getLogger(__name__)
-__version__ = "1.8.3"
+__version__ = "1.10.0"
 
 MINIMAL_BODY = "這一集的新聞整理沒有順利完成。我們不憑空補充內容，新聞來源請參考文字版頁面的連結。"
 MIN_DAILY = guard.MIN_BODY_CHARS
@@ -147,6 +147,25 @@ def build(now: datetime, mode: str, items: list[dict], digest: str = "", trace: 
 
     body, english_words = _fix_english(body)
 
-    script = "\n\n".join([frame.opening(now, mode, slot), body, frame.closing(mode, used)])
+    # ④ 價格動向（程式算、固定句型，不經 AI）與版本更新一句話；任何失敗都只是略過
+    price_par, price_info = "", {}
+    if mode == "daily" and os.environ.get("PRICES", "1") != "0":
+        try:
+            import prices as PR
+            res = PR.get(slot.isoformat())
+            price_par = PR.spoken(res)
+            price_info = {"ok": len(res["rows"]), "fail": len(res["fail"]), "asof": res.get("asof"), "error": res.get("error", "")}
+        except Exception as ex:
+            log.warning(f"⚠️ 價格動向略過：{type(ex).__name__}: {str(ex)[:120]}")
+            price_info = {"error": f"{type(ex).__name__}"}
+    upd_line = ""
+    try:
+        import updates as U
+        upd_line = U.spoken_line(slot.isoformat()) if mode == "daily" else ""
+    except Exception:
+        pass
+    parts = [frame.opening(now, mode, slot), body] + [x for x in (price_par, upd_line) if x] + [frame.closing(mode, used)]
+    script = "\n\n".join(parts)
     return {"script": script, "body": body, "used": used, "report": report, "slot": slot,
-            "mode": mode, "raw_len": raw_len, "pipe": pipe, "stats": stats, "cov_rows": cov_rows, "english_words": english_words}
+            "mode": mode, "raw_len": raw_len, "pipe": pipe, "stats": stats, "cov_rows": cov_rows, "english_words": english_words,
+            "price_info": price_info}

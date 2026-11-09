@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
 
-__version__ = "1.8.0"
+__version__ = "1.10.0"
 
 # 讓 analyzer.py 的 log.info 也會顯示在 GitHub Actions 日誌
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -196,6 +196,11 @@ def build_transcript_html(title: str, script: str, items: list[dict], mp3_url: s
         for s, t, u in _source_rows(items)
     )
     stats_html = stats["html"] if stats else ""
+    try:
+        import updates as _U
+        stats_html += _U.render_html()
+    except Exception:
+        pass
     sources = f"<h2>本集參考的新聞來源</h2>\n<ol>\n{rows}\n</ol>" if rows else ""
     return f"""<!doctype html>
 <html lang="zh-TW">
@@ -235,6 +240,11 @@ def build_transcript_md(title: str, script: str, items: list[dict], mp3_url: str
         lines += [para, ""]
     if stats:
         lines += [stats["md"], ""]
+    try:
+        import updates as _U
+        lines += [_U.render_md(), ""]
+    except Exception:
+        pass
     rows = _source_rows(items)
     if rows:
         lines += ["## 本集參考的新聞來源", ""]

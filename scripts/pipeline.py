@@ -16,7 +16,7 @@ import logging, os, re, time
 import analyzer as A
 import topics as T
 
-__version__ = "1.9.0"
+__version__ = "1.10.0"
 log = logging.getLogger(__name__)
 
 # feed＝每組最多送給 AI 幾則素材（依來源輪流取，關注公司優先）；pick＝AI 挑出幾則筆記
@@ -80,6 +80,7 @@ SYSTEM_COMPOSE = """你是一位專業的台灣財經播客主持人，聲音沉
 重要度高的先講。用自然口語過渡，例如「首先來看」「接下來」「另一個值得關注的消息是」。
 英文筆記請翻成台灣慣用的繁體中文；公司名與人名保留英文原名，金額保留 million／billion／trillion 英文單位，不要換算成萬、億。
 筆記有多少就講多少，每則的長短由筆記內容決定，不要為了拉長而灌水。
+背景或可能影響如果只是把事實換個說法再講一次，就只講一次。
 【標記規則】每則筆記前面有編號（N1、N2…）。講完某則筆記的內容時，請在該句的句號前面加上標記【N編號】，
 例如「Nasdaq 100 指數下跌 6.4%【N1】。」；一句話合併了多則筆記就寫【N2、N3】。標記會由程式移除，不會念出來，請務必標記，且標記一律放在句號之前。
 """ + A._RULES_COMMON
@@ -150,6 +151,8 @@ def _parse_notes(text: str, pick: int, used: list[dict] | None = None, default_b
         none = lambda x: x.strip(" 。.").lower() in ("無", "无", "none", "n/a", "")
         if parts[3] and parts[1][:25] in parts[3]:      # 「影響」只是把事實再抄一次 → 視為沒有
             parts[3] = "無"
+        if len(parts[1]) < 20 and not re.search(r"[A-Za-z0-9]", parts[1]):
+            continue            # 只有幾個中文字、沒有任何名稱或數字（例如把主題標籤當成事實）→ 沒有依據，拒收
         row = {"source": parts[0][:40], "fact": parts[1],
                "background": "無" if none(parts[2]) else parts[2],
                "impact": "無" if none(parts[3]) else parts[3],

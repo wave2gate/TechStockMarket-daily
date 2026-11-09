@@ -1,5 +1,5 @@
 """
-試跑（v1.9.0）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
+試跑（v1.10.0）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
 但不做 TTS、不上傳、不改 feed、不 commit。結果寫進 Actions 的 Summary 頁。
 
 環境變數：
@@ -51,7 +51,7 @@ def main():
                 + len(_re.findall(r"[A-Za-z0-9]", text)) * 0.088)
         return f"{s // 60} 分 {s % 60} 秒"
     mods = []                       # 直接讀檔案裡的版本號（不 import，避免缺套件造成誤報）
-    for m in ("main", "episode", "pipeline", "analyzer", "guard", "frame", "numcheck", "market", "topics", "fetcher", "weekly", "tts", "watchlist", "prices"):
+    for m in ("main", "episode", "pipeline", "analyzer", "guard", "frame", "numcheck", "market", "topics", "fetcher", "weekly", "tts", "watchlist", "prices", "updates"):
         try:
             txt = (pathlib.Path(__file__).parent / f"{m}.py").read_text(encoding="utf-8")
             v = _re.search(r'__version__\s*=\s*"([^"]+)"', txt)
@@ -79,6 +79,10 @@ def main():
            f"- 模式：**{mode}**　美東交易日：{slot}　假裝時間：{now:%Y-%m-%d %H:%M} UTC",
            f"- 版本：analyzer {analyzer.__version__} / pipeline {pipeline.__version__} / episode {episode.__version__}",
            f"- 耗時：{dt:.0f} 秒"]
+    if r and r.get("price_info"):
+        pi = r["price_info"]
+        out.append(f"- 價格動向：成功 {pi.get('ok', 0)} 檔、失敗 {pi.get('fail', 0)} 檔、資料日期 {pi.get('asof') or '無'}"
+                   + (f"　⚠️ {pi['error']}" if pi.get("error") else "　（已寫進稿子）"))
     if err:
         out += ["", f"**失敗：{err}**"]
     else:
@@ -103,7 +107,7 @@ def main():
     if os.environ.get("TRIAL_PRICES", "1") == "1":
         try:
             import prices
-            out += ["", prices.render_md(prices.run())]
+            out += ["", prices.render_md(prices.get(str(slot)))]
         except Exception as e:
             out += ["", f"## 價格試驗失敗：{type(e).__name__}: {str(e)[:150]}"]
     out += ["", "## 抓到的新聞分類結果（每個細項的標題）", ""]
