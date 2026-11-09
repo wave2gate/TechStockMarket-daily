@@ -5,9 +5,19 @@
 ② 在本檔最上方新增一段 ③ 一起 commit。
 Actions 日誌第一行會印出「版本：main x | analyzer x | publish x」，用來確認跑的是新程式碼；
 出現 `?` 代表那個檔案還是舊版（沒有 `__version__`）。
-各檔案目前版本：main 為 1.8.0、pipeline／topics／fetcher／trial／version／watchlist／prices 為 1.9.0、episode 為 1.8.3、frame 為 1.8.2、tts 為 1.7.4（其餘 1.8.x 以各檔案內版本為準）、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
+各檔案目前版本：main／episode／pipeline／topics／trial／version／watchlist／prices／updates 為 1.10.0、fetcher 為 1.9.0、frame 為 1.8.2、tts 為 1.7.4（其餘 1.8.x 以各檔案內版本為準）、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
 
 ---
+
+## [1.10.0] — 2026-11-07　依試跑 #17（v1.9.0，mp3 7:23）：修問題＋價格動向進稿＋更新紀錄
+- 修問題（原規劃的 1.9.1 併入）：
+  - pipeline：筆記階段拒收「只有幾個中文字、沒有名稱或數字」的事實（例如把 Google News 主題標籤當成新聞），防止它後來被統稿拼出混合句；寫稿提示加上「背景或影響若只是重述事實就只講一次」。
+  - topics：收緊關鍵詞——「gold」只認 gold price／gold miners 等明確用法（修正 Nokia "optical gold rush" 被分到貴金屬）；「launch」改為 rocket launch／launch vehicle；新增 quantum 歸 AI 晶片與算力；Duke Energy、natural gas generation、spending plan 歸發電與公用事業（修正被分到油氣）。
+- prices：價格動向寫進日更集數的稿子（程式算、固定句型、不經 AI、中立、不含建議）：各分類代表 ETF 近 21 個交易日漲跌＋創 21 日新高／新低的 ETF 與觀察列表個股；完整表格在試跑摘要。先用 SPY 試連，連不上或最新日期不等於交易日就整段略過（休市日、週末集數不加）。環境變數 PRICES=0 可關閉。
+- 新增 updates.py：給讀者看的版本更新紀錄，R2 文稿頁（HTML 與 MD）底部累積顯示；發版後 3 天內的日更集數口播最新一句。
+- watchlist：新增 LEAD（口播用的代表 ETF）。
+- trial：顯示價格動向狀態；版本警告改比對 EXPECT（含 main、episode）。
+- 不變：fetcher 1.9.0、tts 1.7.4。
 
 ## [1.9.0] — 2026-11-07　依試跑 #16（v1.8.4，mp3 7:51）擴充
 - 順序：電信移到電力前面；新增「貴金屬與關鍵礦產」放最後（細項：貴金屬、銅與關鍵礦產、鈾與核燃料）。總則數維持 34（大盤 5、AI 6、太空 3、資安 4、電信 5、電力 5、油氣 3、貴金屬礦產 3），時長目標約 8 分鐘。
