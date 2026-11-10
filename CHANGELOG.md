@@ -5,9 +5,23 @@
 ② 在本檔最上方新增一段 ③ 一起 commit。
 Actions 日誌第一行會印出「版本：main x | analyzer x | publish x」，用來確認跑的是新程式碼；
 出現 `?` 代表那個檔案還是舊版（沒有 `__version__`）。
-各檔案目前版本：main／episode／pipeline／topics／trial／version／watchlist／prices／updates 為 1.10.0、fetcher 為 1.9.0、frame 為 1.8.2、tts 為 1.7.4（其餘 1.8.x 以各檔案內版本為準）、analyzer／numcheck 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
+各檔案目前版本：main／episode／pipeline／topics／trial／version／updates 為 1.10.1、watchlist／prices 為 1.10.0、fetcher 為 1.9.1、numcheck 為 1.7.1、frame 為 1.8.2、tts 為 1.7.4（其餘 1.8.x 以各檔案內版本為準）、analyzer 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
 
 ---
+
+## [1.10.1] — 2026-11-10　依試跑 #19（v1.10.0，mp3 8:40）：修選稿規則，不加新功能
+- 貴金屬單元誤收大盤新聞（最嚴重）：
+  - topics：貴金屬／礦產細項改為「標題」必須提到金屬或礦業公司才算；Kitco 的大盤文章不再因來源提示被歸進來（Mining.com、Northern Miner 為礦業專門媒體不受限；新增 Mining.com 預設細項 M2）；標題含 theft／stolen／police（如銅線竊案）不算礦產。
+  - pipeline：統稿提示不再要求「每一則筆記都要提到」，改為「每則筆記只能寫在它所屬主題的段落，不得搬到別段；明顯與主題無關的可略過」，防止大盤剩下的筆記被塞進最後一段。
+- 選稿：
+  - 素材每則加〔細項〕標籤，提示要求各細項盡量都有 1 則入選、離題素材一律略過、寧可少於名額。
+  - 同一事件（標題至少共有 2 個有意義字詞）在送給 AI 前與筆記產出後各限制最多 2 則。
+- numcheck 1.7.1：`$130m`、`$7bn`、`$2k` 這類小寫縮寫金額正確換成「130 million 美元」（原本變成「130 美元m」，導致 Mavria 那則被數字關卡誤刪）。
+- fetcher 1.9.1：過濾壞掉的範本標題（含大括號，例如 `{PAGE_DESCRIPTION}`）；新增 `source_health()`，試跑 Summary 增加「來源可用性」（主網址失敗由備援補上／完全沒內容／正常但時間窗內無新文章）。
+- episode：英文殘留置換新增 percent→%、miles→英里、單獨月份（April→4月，後面接數字的日期不動）、agentic／framework／metadata／offensive／security。
+- 沒有改動：價格段落、更新紀錄機制、播報順序、各組 AI 分配、稿件長度規則。
+- 測試：test_v1101.py（分類、數字、事件上限、英文置換、壞標題過濾、提示詞、各檔版本與 EXPECT 一致）與 test_v16／v18／v110 全數通過。
+- 回滾：還原 topics、pipeline、episode、fetcher、numcheck、main、trial、version、updates 到 1.10.0 即可（見 ROLLBACK.md）。
 
 ## [1.10.0] — 2026-11-07　依試跑 #17（v1.9.0，mp3 7:23）：修問題＋價格動向進稿＋更新紀錄
 - 修問題（原規劃的 1.9.1 併入）：
