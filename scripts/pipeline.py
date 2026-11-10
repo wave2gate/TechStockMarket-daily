@@ -16,7 +16,7 @@ import logging, os, re, time
 import analyzer as A
 import topics as T
 
-__version__ = "1.10.0"
+__version__ = "1.10.1"
 log = logging.getLogger(__name__)
 
 # feed＝每組最多送給 AI 幾則素材（依來源輪流取，關注公司優先）；pick＝AI 挑出幾則筆記
@@ -54,7 +54,9 @@ NOTE_RULES_ZH = """你是財經資料編輯。下面是「{name}」的新聞素�
 - 不要補充素材沒有的事實、數字、日期；不要抄錄訂閱、廣告、作者介紹等與事件無關的文字；同一事件只算一則；與美股、科技、宏觀、電力能源、油氣、太空、通訊、資訊安全無關的略過。
 - 金額照素材的美元寫法（保留 million／billion 英文單位）；標示「（非美元金額）」的不要引用金額。
 - 公司名與人名保留英文原名，不要翻譯。
-- 語氣中立克制，不預測漲跌，不給買賣建議。"""
+- 語氣中立克制，不預測漲跌，不給買賣建議。
+- 每則素材前面有〔細項〕標籤。與「{name}」主題無關的素材（即使看起來很重要）一律略過，寧可少於 {pick} 則，不要湊數。
+- 盡量讓每個細項都有至少 1 則入選（前提是該細項的素材確有實質內容）；同一個細項或同一個事件不要佔滿名額，同一事件最多 2 則。"""
 
 NOTE_RULES_EN = """You are a financial news editor. Below are news items for "{name}".
 Pick the {pick} items most relevant to US stocks and the technology industry, most important first.
@@ -67,14 +69,16 @@ Rules:
 - Possible impact: only if the item itself states it; otherwise write "none". Never speculate.
 - One line per event. Skip items unrelated to US stocks, tech, macro, power/energy, oil & gas, space, telecom, cybersecurity (including major hacks of listed companies or crypto thefts), or precious metals and critical minerals (gold, silver, copper, rare earths, uranium).
 - Keep amounts exactly as written in the item (US dollars). Skip amounts marked （非美元金額）.
-- Neutral tone; no price predictions; no buy/sell advice."""
+- Neutral tone; no price predictions; no buy/sell advice.
+- Each item starts with a 〔sub-topic〕 tag. Skip any item unrelated to "{name}" even if it looks important; return fewer than {pick} lines rather than pad.
+- Try to include at least 1 item from every sub-topic that has substantive items; do not let one sub-topic or one event fill the list (max 2 lines per event)."""
 
 SYSTEM_COMPOSE = """你是一位專業的台灣財經播客主持人，聲音沉穩、邏輯清晰。
 下面是編輯整理好的新聞筆記，分成幾個主題。請把它們寫成廣播播報稿的主體。
 結構：先用一小段（兩到四句）概述今天筆記裡的主要脈絡；再依下面的主題順序逐段說明，沒有筆記的主題整段略過：
 大盤與總體經濟 → AI 與半導體 → 太空與下一代通訊 → 資訊安全與數據中心設施 → 電信運營商與供應鏈 → 電力與電網 → 油氣與油價 → 貴金屬與關鍵礦產。
 轉場時用自然的口語帶出主題（例如「接下來看 AI 與半導體」），不要把主題名稱當成標題一個字一個字念出來。
-每一則筆記都要提到（同一事件的多條筆記可合併成一則），不要遺漏；每則先說事實，再說筆記中的背景與可能影響，用自然的句子帶出。
+每則筆記只能寫在它所屬主題的段落（筆記下面的分組標題就是它的主題），絕對不可以把某個主題的筆記搬到別的主題段落；同一事件的多條筆記可合併成一則；若某則筆記與該主題明顯無關，可略過不寫，不要硬寫；每則先說事實，再說筆記中的背景與可能影響，用自然的句子帶出。
 筆記寫「無」或 none 的欄位就不要講，不要自己補。不要說「積極」「保守」這類讀者標籤。
 絕對不要照抄筆記的欄位名稱（例如「事實」「背景」「影響為」「可能影響」），也不要把同一件事用不同說法重複講兩次。
 重要度高的先講。用自然口語過渡，例如「首先來看」「接下來」「另一個值得關注的消息是」。
@@ -86,8 +90,34 @@ SYSTEM_COMPOSE = """你是一位專業的台灣財經播客主持人，聲音沉
 """ + A._RULES_COMMON
 
 
+_GEN = {"stock", "stocks", "shares", "market", "markets", "says", "said", "amid", "after", "with", "from", "that", "this",
+        "will", "over", "into", "more", "than", "about", "report", "reports", "today", "week", "first", "price", "prices",
+        "rise", "rises", "fall", "falls", "drops", "gains", "could", "their", "ceo", "the", "and", "for", "its", "has", "are", "was", "new", "how", "why", "not", "what", "have", "been", "year", "wall", "street"}
+
+
+def _sig(s: str) -> set[str]:
+    """判斷『同一事件』用的有意義字詞（去掉所有格、常見泛用字）。"""
+    s = re.sub(r"[’']s\b", "", s)
+    ws = {w.lower() for w in re.findall(r"[A-Za-z][A-Za-z0-9\-]{2,}", s)}
+    return {w[:-1] if len(w) > 4 and w.endswith("s") else w for w in ws} - _GEN
+
+
+def _cap_events(rows: list, text_of, cap: int = 2) -> list:
+    """同一事件（標題至少共有 2 個有意義字詞）最多保留 cap 則，依原順序。"""
+    kept: list = []
+    sigs: list[set[str]] = []
+    for r in rows:
+        sg = _sig(text_of(r))
+        if sum(1 for k in sigs if len(sg & k) >= 2) >= cap:
+            continue
+        kept.append(r)
+        sigs.append(sg)
+    return kept
+
+
 def _group_block(items: list[dict], g: dict) -> tuple[str, int, list[dict]]:
     pool = [it for it in items if it.get("bucket") in g["buckets"]]
+    pool = _cap_events(sorted(pool, key=lambda x: not x.get("watch")), lambda it: it.get("title", ""))
     by_src: dict[str, list] = {}
     for it in sorted(pool, key=lambda x: not x.get("watch")):       # 關注公司優先
         by_src.setdefault(it.get("source", ""), []).append(it)
@@ -115,7 +145,7 @@ def _group_block(items: list[dict], g: dict) -> tuple[str, int, list[dict]]:
             cur = it["source"]
             lines.append(f"\n【{cur}】")
         t, sm = A.ai_view(it)
-        lines.append(f"- {t}")
+        lines.append(f"- 〔{T.NAMES.get(it.get('bucket'), '')}〕{t}")
         if sm:
             lines.append(f"  {sm[:A.SUMMARY_CHARS]}")
     return "\n".join(lines), len(chosen), chosen
@@ -159,6 +189,7 @@ def _parse_notes(text: str, pick: int, used: list[dict] | None = None, default_b
                "score": int(m.group()) if m else 3, "bucket": default_bucket}
         rows.append(_fix_source(row, used or [], default_bucket))
     rows.sort(key=lambda r: -r["score"])
+    rows = _cap_events(rows, lambda r: r["fact"])          # v1.10.1：同一事件最多 2 則筆記
     return rows[:pick]
 
 

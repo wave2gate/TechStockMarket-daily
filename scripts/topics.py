@@ -8,7 +8,7 @@
 """
 import re
 
-__version__ = "1.10.0"
+__version__ = "1.10.1"
 try:
     from version import RELEASE as _REL
 except Exception:                                  # 沒有 version.py 時不讓整個流程壞掉
@@ -116,13 +116,23 @@ HINTS = {
     "OilPrice.com": "B5", "Rigzone": "B5",
     "Krebs on Security": "S1", "BleepingComputer": "S1", "The Hacker News": "S1", "SecurityWeek": "S1",
     "Dark Reading": "S1", "CISA Advisories": "S1", "Data Center Knowledge": "B4", "The Record": "S1", "Microsoft Security": "S1",
-    "Kitco": "M1", "Northern Miner": "M1",
+    "Kitco": "M1", "Northern Miner": "M1", "Mining.com": "M2",
 }
 
 _COMPILED: dict[str, list[tuple[re.Pattern, float]]] = {}
 for _k, _b in BUCKETS.items():
     _COMPILED[_k] = [(re.compile(r"(?<![a-z0-9])" + re.escape(w.strip()) + (r"" if w.endswith(" ") else r"(?![a-z0-9])"),
                               re.I), _b["w"] * (1.0 + 0.5 * (len(w.split()) > 1))) for w in _b["kw"]]
+
+
+# v1.10.1：貴金屬／礦產細項必須「標題」真的提到金屬或礦業公司才算（Kitco 也發大盤文章，不能只憑來源就歸進來）；
+# Mining.com 與 Northern Miner 是礦業專門媒體，不受此限。
+_METAL_TITLE = re.compile(
+    r"(?<![a-z0-9])(gold|silver|platinum|palladium|bullion|copper|uranium|lithium|nickel|cobalt|rare earths?|critical minerals?|"
+    r"graphite|tungsten|antimony|gallium|germanium|miners?|mining|mines?|enrichment|stockpiles?|"
+    r"newmont|barrick|agnico|kinross|wheaton|freeport|mp materials|cameco|centrus|rio tinto|bhp|teck|glencore|albemarle|"
+    r"hecla|coeur|energy fuels)(?![a-z0-9])")
+_MINING_ONLY = {"Mining.com", "Northern Miner"}
 
 
 def classify(item: dict) -> str:
@@ -135,6 +145,10 @@ def classify(item: dict) -> str:
     hint = item.get("hint") or HINTS.get(item.get("source", ""))
     if hint:
         scores[hint] = scores.get(hint, 0) + 1.0
+    _t = str(item.get("title", "")).lower()
+    if (item.get("source") not in _MINING_ONLY and not _METAL_TITLE.search(_t)) or re.search(r"\b(theft|stolen|police)\b", _t):
+        for k in ("M1", "M2", "M3"):
+            scores.pop(k, None)         # 標題與金屬無關：不歸入貴金屬與礦產（改歸其他細項，沒有線索就是 X）
     if not scores:
         return "X"                      # 沒有任何線索（例如電動車消費新聞）：不進任何筆記組
     return max(scores, key=lambda k: (scores[k], -PRIORITY.index(k)))

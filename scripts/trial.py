@@ -1,5 +1,5 @@
 """
-試跑（v1.10.0）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
+試跑（v1.10.1）：完整跑一遍「抓新聞 → 筆記 → 統稿 → 防幻覺 → 加開場結尾」，
 但不做 TTS、不上傳、不改 feed、不 commit。結果寫進 Actions 的 Summary 頁。
 
 環境變數：
@@ -117,6 +117,14 @@ def main():
             out.append(f"- **{k} {topics.NAMES[k]}**（{len(ts)}）：" + " ｜ ".join(f"{it['title'][:60]}（{it['source'].replace('Google News｜','GN:')}）" for it in ts[:6]))
     out += ["", "## 各來源抓到幾則", "", "| 來源 | 則數 |", "|---|---|"]
     out += [f"| {lab} | {counts.get(lab, 0)} |" for lab, _ in fetcher.SOURCES]
+    try:
+        h = fetcher.source_health()
+        out += ["", "## 來源可用性", "",
+                f"- 主網址失敗、由備援補上：{'、'.join(h['rescued']) or '無'}",
+                f"- 本次完全沒有內容：{'、'.join(h['dead']) or '無'}",
+                f"- 網址正常但時間窗內沒有新文章：{'、'.join(h['quiet']) or '無'}"]
+    except Exception as e:
+        out += ["", f"## 來源可用性統計失敗：{type(e).__name__}"]
     out += ["", "## 來源診斷", "", "| 來源 | HTTP | 條目 | 時間窗內 | 最新一則 | 錯誤 |", "|---|---|---|---|---|---|"]
     for lab, d in fetcher.DIAG.items():
         out.append(f"| {lab} | {d['status']} | {d['entries']} | {d['fresh']} | {d['newest']} | {d['error']} |")

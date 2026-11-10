@@ -16,7 +16,7 @@ import re
 import topics as T
 
 log = logging.getLogger(__name__)
-__version__ = "1.10.0"
+__version__ = "1.10.1"
 
 MINIMAL_BODY = "這一集的新聞整理沒有順利完成。我們不憑空補充內容，新聞來源請參考文字版頁面的連結。"
 MIN_DAILY = guard.MIN_BODY_CHARS
@@ -28,12 +28,19 @@ _STOP = {"the", "and", "for", "with", "from", "that", "this", "its", "has", "hav
 
 
 _ZH_FIX = {"lawmakers": "議員", "lawmaker": "議員", "investors": "投資人", "regulators": "監管機構",
-           "analysts": "分析師", "executives": "高階主管", "shares": "股票", "stocks": "股票"}
+           "analysts": "分析師", "executives": "高階主管", "shares": "股票", "stocks": "股票",
+           "agentic": "自主代理式", "framework": "框架", "metadata": "中繼資料", "offensive": "攻擊性", "security": "安全"}
 _KEEP_EN = {"million", "billion", "trillion", "thousand"}
+_MONTHS = {"January": "1月", "February": "2月", "March": "3月", "April": "4月", "May": "5月", "June": "6月", "July": "7月",
+           "August": "8月", "September": "9月", "October": "10月", "November": "11月", "December": "12月"}
 
 
 def _fix_english(body: str) -> tuple[str, list[str]]:
     """把 AI 偶爾漏譯的常見英文普通名詞換成中文（只換小寫完整單字，不動公司名）；回傳殘留的小寫英文單字供觀察。"""
+    body = re.sub(r"(\d[\d,\.]*)\s*percent\b", r"\1%", body)
+    body = re.sub(r"(\d[\d,\.]*)\s*miles\b", r"\1 英里", body)
+    for en, zh in _MONTHS.items():       # 只換「單獨出現的月份」，後面接數字（如 April 5）不動，避免弄壞日期句型
+        body = re.sub(rf"(?<![A-Za-z]){en}(?![A-Za-z]|\s?\d)", zh, body)
     for en, zh in _ZH_FIX.items():
         body = re.sub(rf"(?<![A-Za-z]){en}(?![A-Za-z])", zh, body)
     left = sorted({w for w in re.findall(r"(?<![A-Za-z\-])[a-z]{4,}(?![A-Za-z])", body)} - _KEEP_EN)

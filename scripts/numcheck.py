@@ -7,7 +7,7 @@ v1.5.1 試跑曾出現「$115 billion 念成一百十五億」「$984 million �
 """
 import re
 
-__version__ = "1.7.0"
+__version__ = "1.7.1"
 
 _MAG_EN = {"trillion": 1e12, "tn": 1e12, "billion": 1e9, "bn": 1e9, "million": 1e6, "mn": 1e6, "thousand": 1e3}
 _MAG_SHORT = {"T": 1e12, "B": 1e9, "M": 1e6, "K": 1e3}
@@ -31,12 +31,12 @@ def _fmt_zh(v: float) -> str:
 _NUM = r"[\d,]+(?:\.\d+)?"
 _MAGW = r"(?:trillion|billion|million|thousand|tn|bn|mn)"
 _NON_USD = [
-    re.compile(rf"(?<![A-Za-z])(?:A|C|HK|NT|S|R|NZ)\$\s?{_NUM}(?:\s?{_MAGW}\b|[TBMK]\b)?"),
-    re.compile(rf"[€£¥₩₹]\s?{_NUM}(?:\s?{_MAGW}\b|[TBMK]\b)?"),
+    re.compile(rf"(?<![A-Za-z])(?:A|C|HK|NT|S|R|NZ)\$\s?{_NUM}(?:\s?{_MAGW}\b|[TBMKtbmk](?![A-Za-z]))?"),
+    re.compile(rf"[€£¥₩₹]\s?{_NUM}(?:\s?{_MAGW}\b|[TBMKtbmk](?![A-Za-z]))?"),
     re.compile(rf"\b(?:RMB|CNY|JPY|EUR|GBP|KRW|INR)\s?{_NUM}(?:\s?{_MAGW}\b)?", re.I),
     re.compile(rf"\b{_NUM}(?:\s?{_MAGW})?\s?(?:yuan|yen|euros?|pounds|won|rupees|RMB)\b", re.I),
 ]
-_USD = re.compile(rf"(?<![A-Za-z])(?:US)?\$\s?({_NUM})(?:\s?({_MAGW})\b|([TBMK])\b)?")
+_USD = re.compile(rf"(?<![A-Za-z])(?:US)?\$\s?({_NUM})(?:\s?({_MAGW})\b|([TBMKtbmk])(?![A-Za-z]))?")
 
 
 def normalize_amounts(text: str) -> str:
@@ -50,7 +50,7 @@ def normalize_amounts(text: str) -> str:
         if m.group(2):
             word = {"tn": "trillion", "bn": "billion", "mn": "million"}.get(m.group(2).lower(), m.group(2).lower())
         elif m.group(3):
-            word = {"T": "trillion", "B": "billion", "M": "million", "K": "thousand"}[m.group(3)]
+            word = {"T": "trillion", "B": "billion", "M": "million", "K": "thousand"}[m.group(3).upper()]
         return f"{m.group(1)} {word} 美元" if word else f"{m.group(1)} 美元"
 
     return _USD.sub(usd, text)

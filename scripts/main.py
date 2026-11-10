@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
 
-__version__ = "1.10.0"
+__version__ = "1.10.1"
 
 # 讓 analyzer.py 的 log.info 也會顯示在 GitHub Actions 日誌
 logging.basicConfig(level=logging.INFO, format="%(message)s")

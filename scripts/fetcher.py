@@ -3,7 +3,7 @@
 新增官方來源：聯準會、勞工統計局；Google News RSS 只當作標題備援（無摘要）。
 新網址未必都有效，試跑 Summary 的「來源診斷」會逐一列出。
 """
-__version__ = "1.9.0"
+__version__ = "1.9.1"
 import html as _html, re, time, logging
 from datetime import datetime, timedelta, timezone
 
@@ -209,9 +209,12 @@ def _parse(url: str, label: str) -> list[dict]:
                 newest = max(newest, pub) if newest else pub
             if pub < cutoff:
                 continue
+            _title = _html.unescape(re.sub(r"<[^>]+>", " ", getattr(e, "title", ""))).strip()
+            if len(_title) < 8 or "{" in _title or "}" in _title:       # v1.9.1：壞掉的範本標題（例如 {PAGE_DESCRIPTION}）不收
+                continue
             items.append({
                 "source":  base,
-                "title":   _html.unescape(re.sub(r"<[^>]+>", " ", getattr(e, "title", ""))).strip(),
+                "title":   _title,
                 "summary": "" if base.startswith("Google News") else re.sub(r"<[^>]+>", " ", getattr(e, "summary", ""))[:400].strip(),
                 "hint":    GN_HINTS.get(base, ""),
                 "url":     getattr(e, "link",    ""),
@@ -223,6 +226,21 @@ def _parse(url: str, label: str) -> list[dict]:
         diag["error"] = f"{type(ex).__name__}: {str(ex)[:100]}"
         log.warning(f"   {label} RSS 失敗: {ex}")
         return []
+
+
+def source_health() -> dict:
+    """主網址失敗但備援補上的、完全沒內容的，分開列出（試跑 Summary 用）。"""
+    bases: dict[str, dict] = {}
+    for label, d in DIAG.items():
+        b = re.sub(r"\(alt\d*\)", "", label)
+        x = bases.setdefault(b, {"primary_ok": False, "fresh": 0, "primary_err": ""})
+        x["fresh"] += d.get("fresh", 0)
+        if label == b:
+            x["primary_ok"] = d.get("status") == 200
+            x["primary_err"] = d.get("error", "")
+    return {"rescued": sorted(b for b, x in bases.items() if not x["primary_ok"] and x["fresh"] > 0),
+            "dead": sorted(b for b, x in bases.items() if x["fresh"] == 0),
+            "quiet": sorted(b for b, x in bases.items() if x["primary_ok"] and x["fresh"] == 0)}
 
 
 def _dedupe(items: list[dict]) -> list[dict]:
