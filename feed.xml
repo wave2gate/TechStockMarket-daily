@@ -20,6 +20,49 @@
   <atom:link href="https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/feed.xml" rel="self" type="application/rss+xml"/>
 
     <item>
+      <title>2026年11月12日 美股科技收盤簡報</title>
+      <description>今天的大盤與總體經濟動態，主要受到科技巨頭人事變動與財報表現的牽動。Nvidia 執行長 Jensen Huang 離職，引發多起醜聞傳聞，導致 Nvidia 股價下挫，市值更因此蒸發 490 billion 美元。而在財報與業務方面，Cerebras 在公佈上季營收優於預期並宣佈與 Microsoft 達成協議後，股價飆升 17%，此前該公司也已與 Amazon 和 Oracle 等主要雲端服務商建立合作夥伴關係。
+
+本集統計：共 32 則新聞（共通 5、AI 與半導體 6、太空與下一代通訊 3、資安與數據中心基礎設施 4、電信 5、電力與電網 3、油氣 3、貴金屬與關鍵礦產 3）。
+
+全文與新聞來源：https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/t/zh-TW/20261112.html
+
+Cisco 公布的盈餘表現超越預期，並表示本會計年度的 AI 基礎設施營收將會加倍，反映出該公司正積極擴大在 AI 領域的參與。此外，Microsoft 發生大規模當機，導致 Outlook 與其他 365 服務受到影響。
+
+接下來看 AI 與半導體領域的最新進展。Applied Materials Inc 公布了 2026 會計年度第四季財報並調高財測，主因是 AI 推升了強勁的晶片需求，這也顯示出較佳的獲利前景。Nvidia 執行長 Jensen Huang 的離職帶來了突然的權力真空，分析師認為這對晶片與網路等競爭對手來說是關鍵機會，對手可能藉此奪取市佔率，而這起離職事件也造成 Nvidia 股價在週四下跌 5%。Nebius 計畫透過客戶預付款與貸款來為其 40 billion 美元 的 AI 基礎設施擴建提供資金，不過 Microsoft 數據中心的延宕引發了外界對其融資模式的質疑與市場擔憂。在資安漏洞方面，執行在 AMD Turin 晶片上的 Google Cloud VMs 需要進行客體作業系統修補程式更新並重新啟動，以防範三個可能洩漏虛擬機器中跨處理程序資料的 CPU 側通道漏洞，這需要進行修補並可能為雲端使用者帶來資料外洩風險。同時，Nvidia 股價出現反彈，市場猜測這可能帶動更廣泛的市場漲勢。
+
+在太空與下一代通訊方面，有報導指出 SpaceX 可能在 12 月宣布 1.5 trillion 美元 的 Tesla 合併案。Qualcomm 將為 Starlink Mobile 的 5G 宏基地台提供技術支援，但分析師指出 SpaceX 可能會跳過傳統的 RAN 供應商。另外，Meta Platforms 的基礎設施負責人兼工程共同負責人 Santosh Janardhan 據報導已向同事表示，他將在 2027 年初離開公司。
+
+轉到資訊安全與數據中心設施的消息。Microsoft 正在調查一起影響多個 Microsoft 365 服務的廣泛當機事件，包含 Outlook、Microsoft Teams 與 Copilot，全球多地使用者回報出現連線問題。Microsoft 在 Patch Tuesday 當天釋出了四位數的更新，修復了 Windows 作業系統與支援軟體中的近 1,100 個安全漏洞，其中包括 63 個重大漏洞以及一個存在於 Microsoft Outlook 的零日漏洞。在網路犯罪方面，網路犯罪集團 Qilin 已成為全球最活躍的勒索軟體附屬組織計畫，在過去三個月內宣稱有至少 365 個組織受害，不過該組織的管理員也犯下了一些關鍵的營運安全失誤。澳洲政府則計劃針對 AI 違規行為引入快速強制通報機制，並將設立針對 AI 安全的目標監管機構。
+
+在電信運營商與供應鏈方面，Alice Huang 持有向 Nvidia 主要競爭對手 Huawei 提供算力的公司股份。Nvidia、Rebellions 與 SK Telecom 簽署了合作備忘錄，將結合 Nvidia 的 GPU 與 Rebellions 的 NPU，共同支援南韓的主權推論。Cisco 與 Vodafone Idea 正在結合網路覆蓋與邊緣 AI，以支援更快速的體驗並為營運商開闢新的營收途徑。AT&amp;T 與 Nokia 則透過 Taara 進行空中連線傳輸。此外，AST SpaceMobile 的執行長暗示，將有第三家美國電信業者加入 AT&amp;T 和 Verizon 的行列，共同合作推動 D2D 業務。
+
+電力與電網方面，Nebius 在第三季簽署了 12 billion 美元 的交易，據報導這些交易皆涵蓋其資本支出，不過該公司也指出了 Microsoft 數據中心專案的延宕情況。Acciona Energía 價值 1 billion 美元 將太陽能與風能資產出售給 Mexico Infrastructure Partners 的交易正面臨延宕，且有破局風險。由 Excelsior Energy Capital 支持的開發商 Lydian Energy，其位於美國猶他州猶他郡的 150MW/600MWh Faraday 電池儲能系統專案已正式投入商業運作，該專案旨在支援 Meta 數據中心。
+
+油氣與油價方面，Nvidia 與油價的劇烈擺盪對華爾街造成了壓力。在美國總統 Donald Trump 表示美國可能放棄與伊朗的協議、使結束中東衝突的曙光黯淡並持續牽動中東供應後，油價維持漲幅，因 Trump 的言論抑制了對與伊朗達成外交突破的希望，帶動油價漲幅超過 3%。
+
+最後看到貴金屬與關鍵礦產，美國 10 月既有成屋銷售下跌 5.5% 至 3.75 million，促使黃金現貨價格下滑至 3,864 美元/oz。法國興業銀行指出，在經歷 13% 的跌幅後，黃金可能會因為指數權重調整而迎來 3.3 billion 美元 的買盤。此外，Jensen Huang 離開 Nvidia 引發了外界對 AI 領導地位的擔憂，這也為依賴新數據中心來支撐金屬需求的礦商帶來了風險。
+
+接下來看價格動向，以下都是過去 21 個交易日的收盤價變化。大盤方面，SPY 下跌 1.9%，QQQ 下跌 5.5%；AI 與半導體方面，SMH 下跌 10.2%；太空與下一代通訊方面，UFO 上漲 2.8%；資安與數據中心方面，CIBR 下跌 6.8%；電信方面，IYZ 上漲 0.1%；電力與電網方面，XLU 上漲 5.2%；油氣方面，XLE 下跌 3.4%；貴金屬與關鍵礦產方面，GLD 下跌 7.3%，COPX 下跌 12.1%。指數型基金中，GLD 今天收盤創下近 21 個交易日的新低。觀察列表中，Nvidia 與 Zscaler 的收盤價創下近 21 個交易日新低；Broadcom、AMD 與 Constellation Energy 的收盤價創下近 21 個交易日新高。以上由程式依收盤價計算，僅供參考。
+
+另外跟大家報告一下，本節目有更新：調整發布流程，目標在美東下午 5 點、也就是太平洋時間下午 2 點整發布；並修正價格動向偶爾因資料延遲而缺席的問題。
+
+市場波動來自技術面、消息面、機構資金等多重因素，請勿單憑新聞買賣股票，投資需謹慎。
+
+無論走勢如何，請保持規律的作息與適度的運動，長期的心態比短線的漲跌更重要。
+
+最後交代一下這一集的製作。新聞整理方面，Google 的 Gemini 模型負責大盤與總體經濟、資訊安全與數據中心設施、電力與電網；OpenAI 開源的 gpt-oss 模型（在 Groq 平台上執行）負責AI 與半導體、電信運營商與供應鏈、貴金屬與關鍵礦產；Meta 的 Llama 模型（在 Cloudflare 平台上執行）負責太空與下一代通訊、油氣與油價；全文由Google 的 Gemini 模型統稿；成稿再由Meta 的 Llama 模型（在 Cloudflare 平台上執行）對照新聞審查；另外由程式逐句核對數字，並刪除了1句無法對照新聞的內容；語音由微軟 Edge 的合成語音朗讀。內容僅供參考，如有疏漏，歡迎指正。
+
+祝各位身體健康、投資順利，闔家平安，神愛世人，耶穌愛您，我們明天見！
+
+本內容由 AI 協助整理並以合成語音播出，僅供參考，不構成投資建議。</description>
+      <content:encoded><![CDATA[<p>今天的大盤與總體經濟動態，主要受到科技巨頭人事變動與財報表現的牽動。Nvidia 執行長 Jensen Huang 離職，引發多起醜聞傳聞，導致 Nvidia 股價下挫，市值更因此蒸發 490 billion 美元。而在財報與業務方面，Cerebras 在公佈上季營收優於預期並宣佈與 Microsoft 達成協議後，股價飆升 17%，此前該公司也已與 Amazon 和 Oracle 等主要雲端服務商建立合作夥伴關係。</p><p>本集統計：共 32 則新聞（共通 5、AI 與半導體 6、太空與下一代通訊 3、資安與數據中心基礎設施 4、電信 5、電力與電網 3、油氣 3、貴金屬與關鍵礦產 3）。</p><p>全文與新聞來源：<a href="https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/t/zh-TW/20261112.html">https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/t/zh-TW/20261112.html</a></p><p>Cisco 公布的盈餘表現超越預期，並表示本會計年度的 AI 基礎設施營收將會加倍，反映出該公司正積極擴大在 AI 領域的參與。此外，Microsoft 發生大規模當機，導致 Outlook 與其他 365 服務受到影響。</p><p>接下來看 AI 與半導體領域的最新進展。Applied Materials Inc 公布了 2026 會計年度第四季財報並調高財測，主因是 AI 推升了強勁的晶片需求，這也顯示出較佳的獲利前景。Nvidia 執行長 Jensen Huang 的離職帶來了突然的權力真空，分析師認為這對晶片與網路等競爭對手來說是關鍵機會，對手可能藉此奪取市佔率，而這起離職事件也造成 Nvidia 股價在週四下跌 5%。Nebius 計畫透過客戶預付款與貸款來為其 40 billion 美元 的 AI 基礎設施擴建提供資金，不過 Microsoft 數據中心的延宕引發了外界對其融資模式的質疑與市場擔憂。在資安漏洞方面，執行在 AMD Turin 晶片上的 Google Cloud VMs 需要進行客體作業系統修補程式更新並重新啟動，以防範三個可能洩漏虛擬機器中跨處理程序資料的 CPU 側通道漏洞，這需要進行修補並可能為雲端使用者帶來資料外洩風險。同時，Nvidia 股價出現反彈，市場猜測這可能帶動更廣泛的市場漲勢。</p><p>在太空與下一代通訊方面，有報導指出 SpaceX 可能在 12 月宣布 1.5 trillion 美元 的 Tesla 合併案。Qualcomm 將為 Starlink Mobile 的 5G 宏基地台提供技術支援，但分析師指出 SpaceX 可能會跳過傳統的 RAN 供應商。另外，Meta Platforms 的基礎設施負責人兼工程共同負責人 Santosh Janardhan 據報導已向同事表示，他將在 2027 年初離開公司。</p><p>轉到資訊安全與數據中心設施的消息。Microsoft 正在調查一起影響多個 Microsoft 365 服務的廣泛當機事件，包含 Outlook、Microsoft Teams 與 Copilot，全球多地使用者回報出現連線問題。Microsoft 在 Patch Tuesday 當天釋出了四位數的更新，修復了 Windows 作業系統與支援軟體中的近 1,100 個安全漏洞，其中包括 63 個重大漏洞以及一個存在於 Microsoft Outlook 的零日漏洞。在網路犯罪方面，網路犯罪集團 Qilin 已成為全球最活躍的勒索軟體附屬組織計畫，在過去三個月內宣稱有至少 365 個組織受害，不過該組織的管理員也犯下了一些關鍵的營運安全失誤。澳洲政府則計劃針對 AI 違規行為引入快速強制通報機制，並將設立針對 AI 安全的目標監管機構。</p><p>在電信運營商與供應鏈方面，Alice Huang 持有向 Nvidia 主要競爭對手 Huawei 提供算力的公司股份。Nvidia、Rebellions 與 SK Telecom 簽署了合作備忘錄，將結合 Nvidia 的 GPU 與 Rebellions 的 NPU，共同支援南韓的主權推論。Cisco 與 Vodafone Idea 正在結合網路覆蓋與邊緣 AI，以支援更快速的體驗並為營運商開闢新的營收途徑。AT&amp;T 與 Nokia 則透過 Taara 進行空中連線傳輸。此外，AST SpaceMobile 的執行長暗示，將有第三家美國電信業者加入 AT&amp;T 和 Verizon 的行列，共同合作推動 D2D 業務。</p><p>電力與電網方面，Nebius 在第三季簽署了 12 billion 美元 的交易，據報導這些交易皆涵蓋其資本支出，不過該公司也指出了 Microsoft 數據中心專案的延宕情況。Acciona Energía 價值 1 billion 美元 將太陽能與風能資產出售給 Mexico Infrastructure Partners 的交易正面臨延宕，且有破局風險。由 Excelsior Energy Capital 支持的開發商 Lydian Energy，其位於美國猶他州猶他郡的 150MW/600MWh Faraday 電池儲能系統專案已正式投入商業運作，該專案旨在支援 Meta 數據中心。</p><p>油氣與油價方面，Nvidia 與油價的劇烈擺盪對華爾街造成了壓力。在美國總統 Donald Trump 表示美國可能放棄與伊朗的協議、使結束中東衝突的曙光黯淡並持續牽動中東供應後，油價維持漲幅，因 Trump 的言論抑制了對與伊朗達成外交突破的希望，帶動油價漲幅超過 3%。</p><p>最後看到貴金屬與關鍵礦產，美國 10 月既有成屋銷售下跌 5.5% 至 3.75 million，促使黃金現貨價格下滑至 3,864 美元/oz。法國興業銀行指出，在經歷 13% 的跌幅後，黃金可能會因為指數權重調整而迎來 3.3 billion 美元 的買盤。此外，Jensen Huang 離開 Nvidia 引發了外界對 AI 領導地位的擔憂，這也為依賴新數據中心來支撐金屬需求的礦商帶來了風險。</p><p>接下來看價格動向，以下都是過去 21 個交易日的收盤價變化。大盤方面，SPY 下跌 1.9%，QQQ 下跌 5.5%；AI 與半導體方面，SMH 下跌 10.2%；太空與下一代通訊方面，UFO 上漲 2.8%；資安與數據中心方面，CIBR 下跌 6.8%；電信方面，IYZ 上漲 0.1%；電力與電網方面，XLU 上漲 5.2%；油氣方面，XLE 下跌 3.4%；貴金屬與關鍵礦產方面，GLD 下跌 7.3%，COPX 下跌 12.1%。指數型基金中，GLD 今天收盤創下近 21 個交易日的新低。觀察列表中，Nvidia 與 Zscaler 的收盤價創下近 21 個交易日新低；Broadcom、AMD 與 Constellation Energy 的收盤價創下近 21 個交易日新高。以上由程式依收盤價計算，僅供參考。</p><p>另外跟大家報告一下，本節目有更新：調整發布流程，目標在美東下午 5 點、也就是太平洋時間下午 2 點整發布；並修正價格動向偶爾因資料延遲而缺席的問題。</p><p>市場波動來自技術面、消息面、機構資金等多重因素，請勿單憑新聞買賣股票，投資需謹慎。</p><p>無論走勢如何，請保持規律的作息與適度的運動，長期的心態比短線的漲跌更重要。</p><p>最後交代一下這一集的製作。新聞整理方面，Google 的 Gemini 模型負責大盤與總體經濟、資訊安全與數據中心設施、電力與電網；OpenAI 開源的 gpt-oss 模型（在 Groq 平台上執行）負責AI 與半導體、電信運營商與供應鏈、貴金屬與關鍵礦產；Meta 的 Llama 模型（在 Cloudflare 平台上執行）負責太空與下一代通訊、油氣與油價；全文由Google 的 Gemini 模型統稿；成稿再由Meta 的 Llama 模型（在 Cloudflare 平台上執行）對照新聞審查；另外由程式逐句核對數字，並刪除了1句無法對照新聞的內容；語音由微軟 Edge 的合成語音朗讀。內容僅供參考，如有疏漏，歡迎指正。</p><p>祝各位身體健康、投資順利，闔家平安，神愛世人，耶穌愛您，我們明天見！</p><p><em>本內容由 AI 協助整理並以合成語音播出，僅供參考，不構成投資建議。</em></p>]]></content:encoded>
+      <pubDate>Thu, 12 Nov 2026 23:38:37 +0000</pubDate>
+      <guid>https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/ep_20261112.mp3</guid>
+      <enclosure url="https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/ep_20261112.mp3" length="3263472" type="audio/mpeg"/>
+      <itunes:explicit>no</itunes:explicit>
+    </item>
+    <item>
       <title>2026年11月11日 美股科技收盤簡報</title>
       <description>首先來看大盤與總體經濟的表現。聯邦傳播委員會委員提名人 Danielle Thumann Severs 在參議院民主黨人的質詢中，對學校與圖書館的 E-Rate 電信補助計畫未來走向未明確表態。隨著投資人權衡人工智慧浪潮核心晶片製造商 Nvidia Corp. 的領導危機，亞洲股市小幅走高，而美國股價指數期貨則出現下滑。
 
