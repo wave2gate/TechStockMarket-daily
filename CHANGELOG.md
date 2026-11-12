@@ -5,7 +5,24 @@
 ② 在本檔最上方新增一段 ③ 一起 commit。
 Actions 日誌第一行會印出「版本：main x | analyzer x | publish x」，用來確認跑的是新程式碼；
 出現 `?` 代表那個檔案還是舊版（沒有 `__version__`）。
-各檔案目前版本：main／episode／pipeline／topics／trial／version／updates 為 1.10.1、watchlist／prices 為 1.10.0、fetcher 為 1.9.1、numcheck 為 1.7.1、frame 為 1.8.2、tts 為 1.7.4（其餘 1.8.x 以各檔案內版本為準）、analyzer 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
+各檔案目前版本：main／prices／episode／version／updates 為 1.10.2、pipeline／topics／trial 為 1.10.1、watchlist 為 1.10.0、fetcher 為 1.9.1、numcheck 為 1.7.1、frame 為 1.8.2、tts 為 1.7.4（其餘 1.8.x 以各檔案內版本為準）、analyzer 為 1.7.0、其餘 1.6.x（publish.py 1.2.1、r2.py、tts.py 未改動）。
+
+---
+
+## [1.10.2] — 2026-11-11　依試跑 #21（v1.10.1，mp3 8:01）：發布時間對準美東 17:00＋價格段落修復
+- 發布時間（使用者目標：太平洋 14:00–14:30＝美東 17:00–17:30）：
+  - 原因：開場白講的是「實際執行時刻」，不是計畫發布時刻；GitHub 排程又常延遲，舊 workflow 的備援在 UTC 23:17（冬令美東 18:17）。
+  - 新設計（main 1.10.2＋publish.yml）：排程改為美東 16:35 開始做稿（UTC 20:35 與 21:35 各一條，季節不符的那條會自動略過）＋UTC 23:10 補發保險；稿件與音檔提前做好，**等到美東 17:00 才更新 feed.xml**，feed 的 pubDate 與稿中「現在是美東下午五點」都是 17:00。GitHub 延遲不超過約 19 分鐘時，仍會在 17:00 準時；延遲更久就盡快發，到美東 17:30 前通常還來得及。
+  - 手動 Run workflow 不等待（立即發布）；Worker 觸發（17:00）不等待；`HOLD=0` 可關閉等待。已發布的交易日一律跳過（不重複）。
+  - Cloudflare Worker 變為選用（有也不衝突）。
+- prices 1.10.2（試跑 #21 價格整段被當成過期丟掉）：
+  - Yahoo 當天最新一根的「調整後收盤」常晚更新（null），原本會誤判成前一天；現在缺的時候用收盤補。
+  - Yahoo 最新日期不是預期交易日時，改看 Stooq 並取較新的一份。
+  - 正式發布（排程）時，價格資料還沒更新會每分鐘重試，最多 6 分鐘（PRICE_WAIT_MIN）；試跑預設不等。
+  - 過期時，試跑 Summary 會列出兩個來源各自的最後日期與數值（診斷）。
+- episode 1.10.2：英文殘留置換新增 alleged→據稱、alleged spy→據稱的間諜（試跑 #21 殘留）。
+- 測試：test_v1102.py（含模擬冬令／夏令／延遲／手動／Worker／中午觸發的發布時刻）與先前測試全數通過。
+- 回滾：把 main、prices、version、updates、publish.yml 換回 1.10.1／舊版即可。
 
 ---
 
