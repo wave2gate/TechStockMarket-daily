@@ -4,9 +4,13 @@ on:
   repository_dispatch:
     types: [new_episode]
   schedule:
-    # v1.6.0：主要由 Cloudflare Worker 在美東 17:00 準時觸發（repository_dispatch）。
-    # 這個排程只是備援：Worker 失靈時仍會發；同一個美東交易日不會重複發（guid 相同＋已發布檢查）。
-    - cron: "17 23 * * *"
+    # v1.10.2：不必設 Worker 也能在美東 17:00（太平洋 14:00）發布。
+    # 主排程在美東 16:35 開始做稿（夏令 UTC 20:35、冬令 UTC 21:35，兩個時間各有一個會因為季節不符而自動略過），
+    # 做好後等到美東 17:00 才更新 feed；GitHub 排程常延遲，提早 25 分鐘開始就是為了吸收延遲。
+    # 第三條 UTC 23:10 是補發保險：前面都沒發成才會動，已發布就跳過。同一個美東交易日不會重複發（guid 相同＋已發布檢查）。
+    - cron: "35 20 * * *"
+    - cron: "35 21 * * *"
+    - cron: "10 23 * * *"
   workflow_dispatch:
 
 permissions:
@@ -19,6 +23,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
