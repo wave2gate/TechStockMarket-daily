@@ -1,11 +1,12 @@
 # scripts/main.py  (v1.8.0)
 import asyncio, html, logging, os, re
+from zoneinfo import ZoneInfo
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
 
-__version__ = "1.10.1"
+__version__ = "1.10.2"
 
 # 讓 analyzer.py 的 log.info 也會顯示在 GitHub Actions 日誌
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -316,12 +317,35 @@ def dedupe_feed(path: Path) -> tuple[int, int]:
     return removed, fixed_amp
 
 
+_ET = ZoneInfo("America/New_York")
+HOLD_MAX_MIN = 45          # 最多提前這麼多分鐘做好，等到美東 17:00 才發
+
+
+def _target_utc(now: datetime) -> datetime:
+    """美東 17:00（收盤後一小時）對應的 UTC 時間。"""
+    return now.astimezone(_ET).replace(hour=17, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+
+
 async def main():
     print(f"版本：main {__version__} | analyzer {getattr(_an, '__version__', '?')} "
           f"| publish {getattr(_pub, '__version__', '?')} | pipeline {getattr(_pl, '__version__', '?')}")
 
     # 日期：以「美東交易日」(slot) 為準。Worker 準時觸發與 GitHub 延遲排程會得到同一個 slot → 同一個 guid，不會重複發。
     now      = datetime.now(timezone.utc)
+    event    = os.environ.get("GITHUB_EVENT_NAME", "")
+    # 排程備援：workflow 同時排了夏令與冬令兩個時間，其中一個會落在美東 16:20 之前（時間不對），直接結束。
+    if event == "schedule":
+        et = now.astimezone(_ET)
+        if not (16 * 60 + 20 <= et.hour * 60 + et.minute < 23 * 60):
+            print(f"⏭️  現在美東 {et:%H:%M}，不在發布時段（16:20–23:00），這是另一個季節的排程，什麼都不做。")
+            return
+    # 排程或 Worker 觸發：提前做好，等到美東 17:00 才更新 feed（稿中的時間也用 17:00）；手動執行則立即發布。
+    target = _target_utc(now)
+    hold = (event in ("schedule", "repository_dispatch") and os.environ.get("HOLD", "1") != "0"
+            and 0 < (target - now).total_seconds() <= HOLD_MAX_MIN * 60)
+    if event != "workflow_dispatch":
+        os.environ.setdefault("PRICE_WAIT_MIN", "6")
+    now_script = target if hold else now
     slot     = market.slot_date(now)
     date_str = slot.strftime("%Y%m%d")
     disp     = f"{slot.year}年{slot.month}月{slot.day}日"      # 標題沿用「2026年11月3日」格式，與舊集數一致
@@ -363,7 +387,7 @@ async def main():
 
     # ② 稿件：主體（AI）→ 防幻覺（程式核對數字＋另一個 AI 審稿，可疑句子刪除）→ 開場與結尾（程式寫）
     print("② 生成播報稿...")
-    result = _ep.build(now, mode, items, digest)
+    result = _ep.build(now_script, mode, items, digest)
     script = result["script"]
     u = result["used"]
     print(f"   主體 {len(result['body'])} 字（AI 原稿 {result['raw_len']} 字，刪除 {u['removed']} 句；"
@@ -387,6 +411,14 @@ async def main():
     if transcript_url:
         print(f"   全文頁：{transcript_url}")
 
+    # ④-c 提前做好的集數：等到美東 17:00 才更新 feed，讓各平台看到的發布時間就是 17:00（太平洋 14:00）
+    if hold:
+        wait = (target - datetime.now(timezone.utc)).total_seconds()
+        if wait > 0:
+            print(f"⏳ 已提前做好，等 {wait / 60:.1f} 分鐘到美東 17:00 才發布")
+            await asyncio.sleep(wait)
+    pub_now = datetime.now(timezone.utc)
+
     # ⑤ 組成 episode dict（符合 publish.py 的格式）
     notes_text, notes_html, truncated = build_notes(script, transcript_url, DESC_MAX_CHARS, (result.get("stats") or {}).get("line", ""))
     print(f"   說明欄 {len(notes_text)} / {DESC_MAX_CHARS} 字符"
@@ -396,7 +428,7 @@ async def main():
         "url":              episode_url,
         "size":             Path(mp3_path).stat().st_size,
         "content_type":     "audio/mpeg",
-        "pubDate":          format_datetime(now),
+        "pubDate":          format_datetime(pub_now),
         "description":      notes_text,
         "description_html": notes_html,
         "guid":             f"ep_{date_str}",

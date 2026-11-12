@@ -16,7 +16,7 @@ import re
 import topics as T
 
 log = logging.getLogger(__name__)
-__version__ = "1.10.1"
+__version__ = "1.10.2"
 
 MINIMAL_BODY = "這一集的新聞整理沒有順利完成。我們不憑空補充內容，新聞來源請參考文字版頁面的連結。"
 MIN_DAILY = guard.MIN_BODY_CHARS
@@ -37,6 +37,8 @@ _MONTHS = {"January": "1月", "February": "2月", "March": "3月", "April": "4�
 
 def _fix_english(body: str) -> tuple[str, list[str]]:
     """把 AI 偶爾漏譯的常見英文普通名詞換成中文（只換小寫完整單字，不動公司名）；回傳殘留的小寫英文單字供觀察。"""
+    body = re.sub(r"(?<![A-Za-z])alleged\s+spy(?![A-Za-z])", "據稱的間諜", body)
+    body = re.sub(r"(?<![A-Za-z])alleged(?![A-Za-z])", "據稱", body)
     body = re.sub(r"(\d[\d,\.]*)\s*percent\b", r"\1%", body)
     body = re.sub(r"(\d[\d,\.]*)\s*miles\b", r"\1 英里", body)
     for en, zh in _MONTHS.items():       # 只換「單獨出現的月份」，後面接數字（如 April 5）不動，避免弄壞日期句型
