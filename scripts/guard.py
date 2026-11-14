@@ -11,12 +11,13 @@ import analyzer as A
 import numcheck as N
 
 log = logging.getLogger(__name__)
-__version__ = "1.6.0"
+__version__ = "1.10.3"
 
 MAX_FLAG_RATIO = 0.4        # 審稿員標記超過這個比例的句子，視為不可靠，整份審稿結果不採用
 MIN_BODY_CHARS = int(os.environ.get("MIN_BODY_CHARS", "") or 500)
 # 各家審稿時能吃的最大輸入（字元）：Groq 免費層每分鐘 token 有限，Cloudflare 上下文 24k tokens
 _AUDIT_LIMIT = {"groq": 9000, "cloudflare": 16000, "gemini": 60000}
+CHUNK = {"groq": 18, "cloudflare": 14, "gemini": 60}
 _AUDIT_ORDER = ["groq", "cloudflare", "gemini"]
 
 AUDIT_PROMPT = """你是嚴格的事實審稿員。下面有「新聞筆記」與「播報稿」（播報稿每句前面有編號）。
@@ -45,28 +46,42 @@ def _available(provider: str) -> bool:
     return bool(os.environ.get(A._REGISTRY[provider][2]))
 
 
+def _notes_for_chunk(notes_text: str, sents: list[str]) -> str:
+    """只留這一批句子標記到的筆記（每行以 N編號. 開頭）；找不到標記就給全部。"""
+    ids = {int(x) for s in sents for m in re.finditer(r"[【\[（(]\s*N[\d、,，/及和N\s]+[】\]）)]", s) for x in re.findall(r"\d+", m.group(0))}
+    if not ids:
+        return notes_text
+    keep = [ln for ln in notes_text.splitlines() if not re.match(r"N\d+\.", ln) or int(re.match(r"N(\d+)\.", ln).group(1)) in ids]
+    return "\n".join(keep)
+
+
+def _audit_chunk(prov: str, numbered: list[str], notes_text: str, start: int) -> set[int]:
+    script_block = "\n".join(f"[{start + i + 1}] {s}" for i, s in enumerate(numbered))
+    prompt = f"{AUDIT_PROMPT}\n\n【新聞筆記】\n{_notes_for_chunk(notes_text, numbered)}\n\n【播報稿】\n{script_block}"
+    if len(prompt) > _AUDIT_LIMIT.get(prov, 9000):
+        raise ValueError(f"輸入太長（{len(prompt)} 字元）")
+    text = A._REGISTRY[prov][1](prompt, 200)
+    return {int(x) - 1 for x in re.findall(r"\d+", text) if start < int(x) <= start + len(numbered)}
+
+
 def audit_ai(numbered: list[str], notes_text: str, writer: str) -> tuple[set[int], dict | None, str]:
-    """回傳 (被標記的句子索引集合, 審稿者資訊, 狀態)。狀態：ok / same_model / skipped"""
-    script_block = "\n".join(f"[{i + 1}] {s}" for i, s in enumerate(numbered))
-    prompt = f"{AUDIT_PROMPT}\n\n【新聞筆記】\n{notes_text}\n\n【播報稿】\n{script_block}"
+    """v1.10.3 分段審稿：句子切成小批，每批只附相關筆記，Groq 也吃得下。
+    回傳 (被標記的句子索引集合, 審稿者資訊, 狀態)。狀態：ok / same_model / skipped"""
     order = [p for p in _AUDIT_ORDER if p != writer and _available(p)]
     status = "ok"
     if not order and _available(writer):
         order, status = [writer], "same_model"
     for prov in order:
-        if len(prompt) > _AUDIT_LIMIT.get(prov, 9000):
-            log.warning(f"   審稿：{prov} 輸入太長（{len(prompt)} 字元），換下一家")
-            continue
+        size = CHUNK.get(prov, 20)
+        flagged: set[int] = set()
         try:
-            text = A._REGISTRY[prov][1](prompt, 200)
+            for st in range(0, len(numbered), size):
+                flagged |= _audit_chunk(prov, numbered[st:st + size], notes_text, st)
         except Exception as ex:
-            log.warning(f"   審稿：{prov} 失敗：{str(ex)[:150]}")
+            log.warning(f"   審稿：{prov} 失敗或輸入太長：{str(ex)[:150]}，換下一家")
             continue
-        nums = {int(x) - 1 for x in re.findall(r"\d+", text) if 0 < int(x) <= len(numbered)}
-        if "NONE" in text.upper() and not nums:
-            nums = set()
-        log.info(f"   審稿：{prov} 標記 {len(nums)} 句")
-        return nums, {"provider": prov, "model": A.LAST_MODEL.get(prov, "")}, status
+        log.info(f"   審稿：{prov} 標記 {len(flagged)} 句（分 {-(-len(numbered) // size)} 批）")
+        return flagged, {"provider": prov, "model": A.LAST_MODEL.get(prov, "")}, status
     return set(), None, "skipped"
 
 

@@ -14,9 +14,10 @@ from zoneinfo import ZoneInfo
 
 from watchlist import WATCH, LEAD
 
-__version__ = "1.10.2"
+__version__ = "1.10.3"
 log = logging.getLogger(__name__)
 WINDOW = 21
+SPOKEN_SECS = {"大盤", "AI 與半導體", "資安與數據中心", "貴金屬與關鍵礦產"}   # v1.10.3：口播只念這四組，其餘留在 R2
 _UA = {"User-Agent": "TechStockMarket-daily/1.10 (podcast research script)"}
 _ET = ZoneInfo("America/New_York")
 _CACHE: dict[str, dict] = {}
@@ -163,21 +164,24 @@ def spoken(res: dict) -> str:
     by = {r["sym"]: r for r in res["rows"]}
     parts = []
     for sec, syms in LEAD:
+        if sec not in SPOKEN_SECS:
+            continue
         bits = [f"{s} {'上漲' if by[s]['chg21'] >= 0 else '下跌'} {abs(by[s]['chg21']):.1f}%" for s in syms if s in by]
         if bits:
             parts.append(f"{sec}方面，" + "，".join(bits))
     if not parts:
         return ""
     txt = "接下來看價格動向，以下都是過去 21 個交易日的收盤價變化。" + "；".join(parts) + "。"
-    etf_hi = [r["sym"] for r in res["rows"] if r["kind"] == "etf" and r["state"] == "high"]
-    etf_lo = [r["sym"] for r in res["rows"] if r["kind"] == "etf" and r["state"] == "low"]
+    spoken_syms = {s for sec, syms in LEAD if sec in SPOKEN_SECS for s in syms}
+    etf_hi = [r["sym"] for r in res["rows"] if r["kind"] == "etf" and r["state"] == "high" and r["sym"] in spoken_syms]
+    etf_lo = [r["sym"] for r in res["rows"] if r["kind"] == "etf" and r["state"] == "low" and r["sym"] in spoken_syms]
     if etf_lo:
         txt += f"指數型基金中，{_join(etf_lo)} 今天收盤創下近 21 個交易日的新低。"
     if etf_hi:
         txt += f"{_join(etf_hi)} 今天收盤創下近 21 個交易日的新高。"
     lo = [r["name"] for r in res["alerts"] if r["state"] == "low"]
     hi = [r["name"] for r in res["alerts"] if r["state"] == "high"]
-    cap = lambda xs: _join(xs[:8]) + (f" 等 {len(xs)} 檔" if len(xs) > 8 else "")
+    cap = lambda xs: _join(xs[:5]) + (f" 等 {len(xs)} 檔，完整名單見文字版" if len(xs) > 5 else "")
     if lo or hi:
         txt += "觀察列表中，"
         if lo:

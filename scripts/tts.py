@@ -1,7 +1,7 @@
 """
 TTS：Edge TTS 台灣女聲，返回音頻時長（秒）
 """
-__version__ = "1.7.4"
+__version__ = "1.10.3"
 import asyncio, logging, re
 from pathlib import Path
 
@@ -19,6 +19,14 @@ def _clean(text: str) -> str:
     text = re.sub(r"https?://\S+",    "",  text)       # URL
     text = re.sub(r"\n{3,}",          "\n\n", text)
     return text.strip()
+
+def estimate_seconds(text: str) -> int:
+    """依中文字與英數字分開估算朗讀秒數（以實測校正）。"""
+    clean = _clean(text)
+    cjk = len(re.findall(r"[\u3400-\u9fff\u3000-\u303f\uff00-\uffef]", clean))
+    asc = len(re.findall(r"[A-Za-z0-9]", clean))
+    return int(cjk * 0.223 + asc * 0.088)
+
 
 async def to_mp3(script: str, out_path: str) -> int:
     """

@@ -16,7 +16,7 @@ import logging, os, re, time
 import analyzer as A
 import topics as T
 
-__version__ = "1.10.1"
+__version__ = "1.10.3"
 log = logging.getLogger(__name__)
 
 # feed＝每組最多送給 AI 幾則素材（依來源輪流取，關注公司優先）；pick＝AI 挑出幾則筆記
@@ -78,7 +78,7 @@ SYSTEM_COMPOSE = """你是一位專業的台灣財經播客主持人，聲音沉
 結構：先用一小段（兩到四句）概述今天筆記裡的主要脈絡；再依下面的主題順序逐段說明，沒有筆記的主題整段略過：
 大盤與總體經濟 → AI 與半導體 → 太空與下一代通訊 → 資訊安全與數據中心設施 → 電信運營商與供應鏈 → 電力與電網 → 油氣與油價 → 貴金屬與關鍵礦產。
 轉場時用自然的口語帶出主題（例如「接下來看 AI 與半導體」），不要把主題名稱當成標題一個字一個字念出來。
-每則筆記只能寫在它所屬主題的段落（筆記下面的分組標題就是它的主題），絕對不可以把某個主題的筆記搬到別的主題段落；同一事件的多條筆記可合併成一則；若某則筆記與該主題明顯無關，可略過不寫，不要硬寫；每則先說事實，再說筆記中的背景與可能影響，用自然的句子帶出。
+每則筆記只能寫在它所屬主題的段落（筆記下面的分組標題就是它的主題），絕對不可以把某個主題的筆記搬到別的主題段落；只有「明確是同一件事」的多條筆記才可合併成一則，不同事件（即使同屬一個主題、或有共同的公司或產業）一律分開寫成不同的句子，絕不可用一句話把兩件不同的事串起來；若某則筆記與該主題明顯無關，可略過不寫，不要硬寫；每則先說事實，再說筆記中的背景與可能影響，用自然的句子帶出。
 筆記寫「無」或 none 的欄位就不要講，不要自己補。不要說「積極」「保守」這類讀者標籤。
 絕對不要照抄筆記的欄位名稱（例如「事實」「背景」「影響為」「可能影響」），也不要把同一件事用不同說法重複講兩次。
 重要度高的先講。用自然口語過渡，例如「首先來看」「接下來」「另一個值得關注的消息是」。
@@ -86,7 +86,7 @@ SYSTEM_COMPOSE = """你是一位專業的台灣財經播客主持人，聲音沉
 筆記有多少就講多少，每則的長短由筆記內容決定，不要為了拉長而灌水。
 背景或可能影響如果只是把事實換個說法再講一次，就只講一次。
 【標記規則】每則筆記前面有編號（N1、N2…）。講完某則筆記的內容時，請在該句的句號前面加上標記【N編號】，
-例如「Nasdaq 100 指數下跌 6.4%【N1】。」；一句話合併了多則筆記就寫【N2、N3】。標記會由程式移除，不會念出來，請務必標記，且標記一律放在句號之前。
+例如「Nasdaq 100 指數下跌 6.4%【N1】。」；只有真的是同一事件才可在一句裡寫【N2、N3】，其餘每句只標一個編號。標記會由程式移除，不會念出來，請務必標記，且標記一律放在句號之前。
 """ + A._RULES_COMMON
 
 
@@ -247,6 +247,9 @@ def _notes_for_group(items: list[dict], g: dict, trace: list) -> tuple[list[dict
     return best, best_prov, best_model
 
 
+IMPACT_MIN_SCORE = int(os.environ.get("IMPACT_MIN_SCORE", "") or 4)
+
+
 def _notes_text(groups_notes: list[tuple[str, list[dict]]], compact: bool = False) -> str:
     out = []
     for name, notes in groups_notes:
@@ -257,8 +260,9 @@ def _notes_text(groups_notes: list[tuple[str, list[dict]]], compact: bool = Fals
                 bits = [r["fact"]] + [x for x in (r["background"], r["impact"]) if x and x != "無"]
                 out.append(f"N{r.get('id', i)}. {src}" + "；".join(bits))
                 continue
+            imp = r["impact"] if (r.get("score", 0) >= IMPACT_MIN_SCORE) else "無"   # v1.10.3：只有高重要度才講影響
             out.append(f"N{r.get('id', i)}. {src}事實：{r['fact']}　背景：{r['background']}　"
-                       f"可能影響：{r['impact']}　（重要度 {r['score']}）")
+                       f"可能影響：{imp}　（重要度 {r['score']}）")
     return "\n".join(out)
 
 
@@ -278,10 +282,11 @@ def build_daily(items: list[dict], date: str, trace: list | None = None) -> dict
         raise RuntimeError(f"只有 {len(got)} 組筆記（至少需要 {MIN_GROUPS}），退回一次寫完的流程")
 
     nid = 0
-    for _, ns in got:                       # 全域編號 N1…Nk，統稿時用來標記、成稿後用來統計
+    for gname, ns in got:                   # 全域編號 N1…Nk，統稿時用來標記、成稿後用來統計
         for r in ns:
             nid += 1
             r["id"] = nid
+            r["group"] = gname
     ntext = _notes_text(got)
     prompt = SYSTEM_COMPOSE + "\n\n以下是今天各組整理好的新聞筆記（重要度 5 最高）：\n" + ntext
     log.info(f"   統稿：{sum(len(n) for _, n in got)} 則筆記，提示詞約 {len(prompt)} 字")

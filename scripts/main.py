@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from email.utils import format_datetime
 from pathlib import Path
 
-__version__ = "1.10.2"
+__version__ = "1.10.3"
 
 # 讓 analyzer.py 的 log.info 也會顯示在 GitHub Actions 日誌
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -392,7 +392,11 @@ async def main():
     u = result["used"]
     print(f"   主體 {len(result['body'])} 字（AI 原稿 {result['raw_len']} 字，刪除 {u['removed']} 句；"
           f"審稿：{u['audit_status']}；保底稿：{u['safe_mode']}）")
-    print(f"   全稿 {len(script)} 字（約 {len(script) / 300:.1f} 分鐘，以每分鐘 300 字估算）")
+    import tts as _T
+    _est = _T.estimate_seconds(script)
+    print(f"   全稿 {len(script)} 字（估算朗讀約 {_est // 60}分{_est % 60}秒，中文與英數分開計；目標 9 分鐘內）")
+    if _est > 9 * 60 + 30:
+        print("   ⚠️ 估算超過 9 分 30 秒")
 
     # ③ TTS → MP3（存到 /tmp 避免汙染 repo）
     print("③ TTS 生成音頻...")

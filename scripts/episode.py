@@ -16,7 +16,7 @@ import re
 import topics as T
 
 log = logging.getLogger(__name__)
-__version__ = "1.10.2"
+__version__ = "1.10.3"
 
 MINIMAL_BODY = "這一集的新聞整理沒有順利完成。我們不憑空補充內容，新聞來源請參考文字版頁面的連結。"
 MIN_DAILY = guard.MIN_BODY_CHARS
@@ -39,6 +39,8 @@ def _fix_english(body: str) -> tuple[str, list[str]]:
     """把 AI 偶爾漏譯的常見英文普通名詞換成中文（只換小寫完整單字，不動公司名）；回傳殘留的小寫英文單字供觀察。"""
     body = re.sub(r"(?<![A-Za-z])alleged\s+spy(?![A-Za-z])", "據稱的間諜", body)
     body = re.sub(r"(?<![A-Za-z])alleged(?![A-Za-z])", "據稱", body)
+    body = re.sub(r"(?<![A-Za-z])oil\s+prices?(?![A-Za-z])", "油價", body)
+    body = re.sub(r"格林\s*ville", "格林維爾", body)
     body = re.sub(r"(\d[\d,\.]*)\s*percent\b", r"\1%", body)
     body = re.sub(r"(\d[\d,\.]*)\s*miles\b", r"\1 英里", body)
     for en, zh in _MONTHS.items():       # 只換「單獨出現的月份」，後面接數字（如 April 5）不動，避免弄壞日期句型
@@ -66,6 +68,41 @@ def _marked_ids(body: str) -> set[int]:
 
 def _strip_marks(body: str) -> str:
     return re.sub(r"\s*" + MARK, "", body)
+
+
+def _sentence_ids(s: str) -> list[int]:
+    return [int(x) for m in re.finditer(MARK, s) for x in re.findall(r"\d+", m.group(0))]
+
+
+def _drop_mixed_and_misplaced(body: str, notes: list[dict]) -> tuple[str, list[dict]]:
+    """v1.10.3：刪掉（1）一句話標了不同事件的筆記、（2）明顯放錯主題段落的句子。程式判斷，不再問 AI。"""
+    by = {r["id"]: r for r in notes if r.get("id")}
+    paras = guard.split_body(body)
+    removed: list[dict] = []
+    for p in paras:
+        ids_all = [i for s in p for i in _sentence_ids(s) if i in by]
+        major = ""
+        if len(ids_all) >= 3:
+            cnt: dict[str, int] = {}
+            for i in ids_all:
+                g = by[i].get("group", "")
+                cnt[g] = cnt.get(g, 0) + 1
+            top = max(cnt, key=cnt.get)
+            if cnt[top] / len(ids_all) >= 0.6:
+                major = top
+        for k, s in enumerate(p):
+            ids = [i for i in _sentence_ids(s) if i in by]
+            why = ""
+            if len(ids) >= 2:
+                sigs = [P._sig(by[i]["fact"] + " " + by[i].get("background", "")) for i in ids]
+                if any(len(a & b) < 2 for ai, a in enumerate(sigs) for b in sigs[ai + 1:]):
+                    why = "一句話串了不同事件"
+            if not why and major and ids and all(by[i].get("group") != major for i in ids):
+                why = f"放錯主題段落（應屬{by[ids[0]].get('group')}）"
+            if why:
+                removed.append({"sentence": _strip_marks(s), "why": why})
+                p[k] = ""
+    return guard.join_body([[s for s in p if s] for p in paras]), removed
 
 
 def _is_covered(body: str, fact: str) -> bool:
@@ -117,8 +154,12 @@ def build(now: datetime, mode: str, items: list[dict], digest: str = "", trace: 
             body = ""
     raw_len = len(body)
 
+    mixed_removed: list[dict] = []
     if pipe and body:
         body = _normalize_marks(body)
+        body, mixed_removed = _drop_mixed_and_misplaced(body, pipe["notes_all"])
+        for m in mixed_removed:
+            log.warning(f"   程式刪句（{m['why']}）：{m['sentence'][:60]}")
 
     # ② 防幻覺：程式核對數字 + 另一個 AI 審稿，可疑句子直接刪除
     report: dict = {}
@@ -177,4 +218,4 @@ def build(now: datetime, mode: str, items: list[dict], digest: str = "", trace: 
     script = "\n\n".join(parts)
     return {"script": script, "body": body, "used": used, "report": report, "slot": slot,
             "mode": mode, "raw_len": raw_len, "pipe": pipe, "stats": stats, "cov_rows": cov_rows, "english_words": english_words,
-            "price_info": price_info}
+            "price_info": price_info, "mixed_removed": mixed_removed}
