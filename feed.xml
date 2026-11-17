@@ -20,6 +20,47 @@
   <atom:link href="https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/feed.xml" rel="self" type="application/rss+xml"/>
 
     <item>
+      <title>2026年11月16日 美股科技收盤簡報</title>
+      <description>今天市場焦點集中在人工智慧相關交易開局疲弱，Nasdaq 100 指數下挫 2.7%，美國晶片股因 Nvidia 面臨新一波賣壓而走低。亞洲股市隨之下跌，主因美國採取行動限制中國取得先進人工智慧晶片與伺服器，加上市場在 Nvidia 財報公布前保持謹慎。在延長交易時段中，Intel 股價走低，因為 Nvidia 在第三季削減了對其持股。同時，Red Cat Holdings Inc. 公布了 2026 會計年度第三季財務結果，營收與獲利皆未達預期。
+
+本集統計：共 33 則新聞（共通 5、AI 與半導體 6、太空與下一代通訊 3、資安與數據中心基礎設施 4、電信 5、電力與電網 4、油氣 3、貴金屬與關鍵礦產 3）。
+
+全文與新聞來源：https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/t/zh-TW/20261116.html
+
+接下來看 AI 與半導體，Nvidia 臨時執行長兼長期財務長 Colette Kress 即將公布第三季財報。面對 Nvidia 當前的動盪，市場關注財報中是否能解答多項疑問。市場傳出 Nvidia 董事會曾接觸 Arm 執行長 Rene Haas 以填補懸缺的執行長職位，而 Jensen Huang 則在考慮回歸。SK Hynix 將與南韓國府合作設立晶片測試設施，在未來五年內投資 1.05 billion USD。Michael Burry 對 AMD 的潛在漲幅表示謹慎，儘管該公司被視為 Nvidia 亂局中的主要受惠者。TSMC 在 11 月 12 日向美國證券交易委員會提交的文件中，確認發生員工資料外洩事件。強勁的記憶體價格可能毫無意義。
+
+在太空與下一代通訊方面，Amazon Leo 在 Vulcan 火箭爆炸中損失了 40 枚衛星。Nokia 表示，在 Huang 離職後，與 Nvidia 的夥伴關係將持續按計畫進行。SpaceX 的 Starship 計畫持續推進，而 Amazon Leo 則遭遇了另一次挫折。
+
+資訊安全與數據中心設施方面，Microsoft 表示 7 月引入的一項軟體錯誤導致上週全球 Microsoft 365 發生故障，引發連鎖失效，使超過 80% 的網路閘道伺服器無回應。針對 Optimizely 的疑似供應鏈攻擊，導致惡意 JavaScript 被載入多個熱門網站，包括 Zoom、CNN、Fox News、BBC、Salesforce 和 GitLab，暴露出訪客面臨被設計用來竊取加密貨幣與支付資訊並利用漏洞的腳本風險。人工智慧資安新創公司 Corba 在推出產品三個月後，由 NEA 領投完成 125 million 美元 A 輪融資，估值達到 1 billion 美元。針對 Meta 的 Facebook 平台的打擊行動，涉及該公司涉嫌利用 2023 年推出的相機膠卷建議選項，瀏覽 Android 用戶的照片庫，以推薦可用個人照片與影片美化的貼文。
+
+電信運營商與供應鏈方面，執行長 Chuck Robbins 形容這是一場多年度網路超級循環，支撐因素包含創紀錄的 18.5 billion 美元季度營收、上調的全年展望，以及倍增的 AI 基礎設施預測。Nvidia 在第三季出售 93.5 million 股 Nokia 股份，將持股削減 56%，其剩餘的 72.9 million 股在季底價值 738.8 million 美元。在虛假廣告訴訟中，AT&amp;T 表示 Comcast 的光纖驅動 Wi-Fi 其實只是有線電視。AT&amp;T 為首個光纖連接的新總部園區舉行了動土典禮。Quebecor 發起 22 billion 美元收購 Telus 的出價。
+
+電力與電網方面，NRG Energy 同意以 4 billion 美元將 4.9 GW 的天然氣發電廠售予 LS Power。NeoVolta 與一家未具名的領先能源解決方案供應商簽署了 116 million 美元的主採購合約。Exus Renewables North America 宣布完成由 Goldman Sachs Alternatives 領投的 345 million 美元高階擔保控股公司融資。Flatiron Energy 在美國麻薩諸塞州切爾西動工興建 250MW 搭配 1,200MWh 的 Energizar 儲能專案。
+
+美國能源資訊管理局預測阿拉斯加原油產量在 2027 年將成長 13%。Mitsui &amp; Co. 支持 J-Oil Mills Inc. 提出收購 Kadoya Sesame Mills Inc. 的提案。
+
+最後來看貴金屬與關鍵礦產，受到科技股賣壓與美元壓力的影響，黃金與白銀價格延續跌勢。美國陸軍簽署了一份無法律拘束力的合作備忘錄，將在其中一座基地內設立一座商業稀土工廠，租約可能延續至 2100 年之後。Meta 的預付款項推動了 Centrus Energy 與 Oklo 達成多年度核燃料供應協議。
+
+接下來看價格動向，以下都是過去 21 個交易日的收盤價變化。大盤方面，SPY 下跌 3.5%，QQQ 下跌 7.9%；AI 與半導體方面，SMH 下跌 15.8%；資安與數據中心方面，CIBR 下跌 6.7%；貴金屬與關鍵礦產方面，GLD 下跌 7.0%，COPX 下跌 17.8%。指數型基金中，GLD 與 COPX 今天收盤創下近 21 個交易日的新低。觀察列表中，Nvidia、AST SpaceMobile、Zscaler、GE Vernova 與 Freeport-McMoRan 等 6 檔，完整名單見文字版 的收盤價創下近 21 個交易日新低。以上由程式依收盤價計算，僅供參考。
+
+另外跟大家報告一下，本節目有更新：全集縮短到約 9 分鐘內：只有重要度高的新聞才講可能影響，價格動向只念大盤、AI、資安與貴金屬；同時修正兩件不相關的事被串成一句的問題。
+
+市場波動來自技術面、消息面、機構資金等多重因素，請勿單憑新聞買賣股票，投資需謹慎。
+
+無論走勢如何，請保持規律的作息與適度的運動，長期的心態比短線的漲跌更重要。
+
+最後交代一下這一集的製作。新聞整理方面，Google 的 Gemini 模型負責大盤與總體經濟、資訊安全與數據中心設施、電力與電網；OpenAI 開源的 gpt-oss 模型（在 Groq 平台上執行）負責AI 與半導體、電信運營商與供應鏈、貴金屬與關鍵礦產；Meta 的 Llama 模型（在 Cloudflare 平台上執行）負責太空與下一代通訊、油氣與油價；全文由Google 的 Gemini 模型統稿；成稿再由阿里巴巴的 Qwen 模型（在 Groq 平台上執行）對照新聞審查；另外由程式逐句核對數字，並刪除了2句無法對照新聞的內容；語音由微軟 Edge 的合成語音朗讀。內容僅供參考，如有疏漏，歡迎指正。
+
+祝各位身體健康、投資順利，闔家平安，神愛世人，耶穌愛您，我們明天見！
+
+本內容由 AI 協助整理並以合成語音播出，僅供參考，不構成投資建議。</description>
+      <content:encoded><![CDATA[<p>今天市場焦點集中在人工智慧相關交易開局疲弱，Nasdaq 100 指數下挫 2.7%，美國晶片股因 Nvidia 面臨新一波賣壓而走低。亞洲股市隨之下跌，主因美國採取行動限制中國取得先進人工智慧晶片與伺服器，加上市場在 Nvidia 財報公布前保持謹慎。在延長交易時段中，Intel 股價走低，因為 Nvidia 在第三季削減了對其持股。同時，Red Cat Holdings Inc. 公布了 2026 會計年度第三季財務結果，營收與獲利皆未達預期。</p><p>本集統計：共 33 則新聞（共通 5、AI 與半導體 6、太空與下一代通訊 3、資安與數據中心基礎設施 4、電信 5、電力與電網 4、油氣 3、貴金屬與關鍵礦產 3）。</p><p>全文與新聞來源：<a href="https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/t/zh-TW/20261116.html">https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/t/zh-TW/20261116.html</a></p><p>接下來看 AI 與半導體，Nvidia 臨時執行長兼長期財務長 Colette Kress 即將公布第三季財報。面對 Nvidia 當前的動盪，市場關注財報中是否能解答多項疑問。市場傳出 Nvidia 董事會曾接觸 Arm 執行長 Rene Haas 以填補懸缺的執行長職位，而 Jensen Huang 則在考慮回歸。SK Hynix 將與南韓國府合作設立晶片測試設施，在未來五年內投資 1.05 billion USD。Michael Burry 對 AMD 的潛在漲幅表示謹慎，儘管該公司被視為 Nvidia 亂局中的主要受惠者。TSMC 在 11 月 12 日向美國證券交易委員會提交的文件中，確認發生員工資料外洩事件。強勁的記憶體價格可能毫無意義。</p><p>在太空與下一代通訊方面，Amazon Leo 在 Vulcan 火箭爆炸中損失了 40 枚衛星。Nokia 表示，在 Huang 離職後，與 Nvidia 的夥伴關係將持續按計畫進行。SpaceX 的 Starship 計畫持續推進，而 Amazon Leo 則遭遇了另一次挫折。</p><p>資訊安全與數據中心設施方面，Microsoft 表示 7 月引入的一項軟體錯誤導致上週全球 Microsoft 365 發生故障，引發連鎖失效，使超過 80% 的網路閘道伺服器無回應。針對 Optimizely 的疑似供應鏈攻擊，導致惡意 JavaScript 被載入多個熱門網站，包括 Zoom、CNN、Fox News、BBC、Salesforce 和 GitLab，暴露出訪客面臨被設計用來竊取加密貨幣與支付資訊並利用漏洞的腳本風險。人工智慧資安新創公司 Corba 在推出產品三個月後，由 NEA 領投完成 125 million 美元 A 輪融資，估值達到 1 billion 美元。針對 Meta 的 Facebook 平台的打擊行動，涉及該公司涉嫌利用 2023 年推出的相機膠卷建議選項，瀏覽 Android 用戶的照片庫，以推薦可用個人照片與影片美化的貼文。</p><p>電信運營商與供應鏈方面，執行長 Chuck Robbins 形容這是一場多年度網路超級循環，支撐因素包含創紀錄的 18.5 billion 美元季度營收、上調的全年展望，以及倍增的 AI 基礎設施預測。Nvidia 在第三季出售 93.5 million 股 Nokia 股份，將持股削減 56%，其剩餘的 72.9 million 股在季底價值 738.8 million 美元。在虛假廣告訴訟中，AT&amp;T 表示 Comcast 的光纖驅動 Wi-Fi 其實只是有線電視。AT&amp;T 為首個光纖連接的新總部園區舉行了動土典禮。Quebecor 發起 22 billion 美元收購 Telus 的出價。</p><p>電力與電網方面，NRG Energy 同意以 4 billion 美元將 4.9 GW 的天然氣發電廠售予 LS Power。NeoVolta 與一家未具名的領先能源解決方案供應商簽署了 116 million 美元的主採購合約。Exus Renewables North America 宣布完成由 Goldman Sachs Alternatives 領投的 345 million 美元高階擔保控股公司融資。Flatiron Energy 在美國麻薩諸塞州切爾西動工興建 250MW 搭配 1,200MWh 的 Energizar 儲能專案。</p><p>美國能源資訊管理局預測阿拉斯加原油產量在 2027 年將成長 13%。Mitsui &amp; Co. 支持 J-Oil Mills Inc. 提出收購 Kadoya Sesame Mills Inc. 的提案。</p><p>最後來看貴金屬與關鍵礦產，受到科技股賣壓與美元壓力的影響，黃金與白銀價格延續跌勢。美國陸軍簽署了一份無法律拘束力的合作備忘錄，將在其中一座基地內設立一座商業稀土工廠，租約可能延續至 2100 年之後。Meta 的預付款項推動了 Centrus Energy 與 Oklo 達成多年度核燃料供應協議。</p><p>接下來看價格動向，以下都是過去 21 個交易日的收盤價變化。大盤方面，SPY 下跌 3.5%，QQQ 下跌 7.9%；AI 與半導體方面，SMH 下跌 15.8%；資安與數據中心方面，CIBR 下跌 6.7%；貴金屬與關鍵礦產方面，GLD 下跌 7.0%，COPX 下跌 17.8%。指數型基金中，GLD 與 COPX 今天收盤創下近 21 個交易日的新低。觀察列表中，Nvidia、AST SpaceMobile、Zscaler、GE Vernova 與 Freeport-McMoRan 等 6 檔，完整名單見文字版 的收盤價創下近 21 個交易日新低。以上由程式依收盤價計算，僅供參考。</p><p>另外跟大家報告一下，本節目有更新：全集縮短到約 9 分鐘內：只有重要度高的新聞才講可能影響，價格動向只念大盤、AI、資安與貴金屬；同時修正兩件不相關的事被串成一句的問題。</p><p>市場波動來自技術面、消息面、機構資金等多重因素，請勿單憑新聞買賣股票，投資需謹慎。</p><p>無論走勢如何，請保持規律的作息與適度的運動，長期的心態比短線的漲跌更重要。</p><p>最後交代一下這一集的製作。新聞整理方面，Google 的 Gemini 模型負責大盤與總體經濟、資訊安全與數據中心設施、電力與電網；OpenAI 開源的 gpt-oss 模型（在 Groq 平台上執行）負責AI 與半導體、電信運營商與供應鏈、貴金屬與關鍵礦產；Meta 的 Llama 模型（在 Cloudflare 平台上執行）負責太空與下一代通訊、油氣與油價；全文由Google 的 Gemini 模型統稿；成稿再由阿里巴巴的 Qwen 模型（在 Groq 平台上執行）對照新聞審查；另外由程式逐句核對數字，並刪除了2句無法對照新聞的內容；語音由微軟 Edge 的合成語音朗讀。內容僅供參考，如有疏漏，歡迎指正。</p><p>祝各位身體健康、投資順利，闔家平安，神愛世人，耶穌愛您，我們明天見！</p><p><em>本內容由 AI 協助整理並以合成語音播出，僅供參考，不構成投資建議。</em></p>]]></content:encoded>
+      <pubDate>Tue, 17 Nov 2026 03:08:09 +0000</pubDate>
+      <guid>https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/ep_20261116.mp3</guid>
+      <enclosure url="https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/ep_20261116.mp3" length="2788992" type="audio/mpeg"/>
+      <itunes:explicit>no</itunes:explicit>
+    </item>
+    <item>
       <title>2026年11月15日 美股科技收盤簡報｜下週前瞻</title>
       <description>回顧本週，市場主要受到總體經濟數據牽動，伴隨人工智慧與半導體供應鏈資金重組，以及數據中心急速成長帶動的電力與基礎設施需求。此外，科技巨頭高層變動與相關風波引發了市場波動，美國股市指標表現混合。
 
