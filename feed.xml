@@ -20,6 +20,47 @@
   <atom:link href="https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/feed.xml" rel="self" type="application/rss+xml"/>
 
     <item>
+      <title>2026年11月18日 美股科技收盤簡報</title>
+      <description>今天的焦點涵蓋大盤動態、科技與半導體產業發展、通訊與基礎設施、能源市場以及關鍵礦產的最新變化。
+
+本集統計：共 32 則新聞（共通 5、AI 與半導體 6、太空與下一代通訊 3、資安與數據中心基礎設施 3、電信 5、電力與電網 4、油氣 3、貴金屬與關鍵礦產 3）。
+
+全文與新聞來源：https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/t/zh-TW/20261118.html
+
+首先來看大盤與總體經濟的動態。Anthropic 將 IPO 發行價定在每股 83 美元，高於預期區間，該股票預定於星期四在 Nasdaq 開始交易，代號為 ANT。專家指出，微軟、JPMorgan 等企業近期發生的美國技術故障，可能是因為各界急於修復人工智慧所發現的軟體錯誤所導致。新創企業 Ramp 正在進行募資，估值達到 70 billion 美元。參議院的兩黨議員呼籲白宮建立國家級的努力，以更強健地應對人工智慧帶來的網路威脅。美國股市多數收低，主因是 Nvidia 的財報未能平撫市場緊張情緒。
+
+接下來看 AI 與半導體領域。Nvidia 臨時執行長 Colette Kress 在 Jensen Huang 離職後的首次全體員工大會上，向員工喊話並提供加薪。微軟在 Ignite 大會上發表新的 AI 模型後，Mizuho 分析師重申對 MSFT 的買進評等，目標價設定在 625 美元，背景是來自 OpenAI 與 Anthropic 的激烈競爭。Micron 有三個催化劑，準備推動這家記憶體晶片製造商超越 Nvidia 財報的表現。在 Nvidia 引領的 AI 熱潮面臨現實考驗之際，Apple 股票展現出韌性，而同為 AI 概念股的 Nvidia 與 Meta 則相對走弱。Nvidia 交出強勁的表現，但在市場對該公司的嚴格審視與總體經濟因素下，仍存在不少疑問。Marc Hijink 討論了 ASML 以夥伴為導向的文化、在 EUV 的主導地位，以及地緣政治壓力如何重塑晶片製造。
+
+在太空與下一代通訊方面。Nvidia 售出超過一半的 Nokia 持股，分析師認為這是獲利了結，並非撤出 AI-RAN 領域。VodafoneThree 將測試 Nokia 與 Nvidia 的 AI-RAN 平台。Verizon CTO Yago Tenorio 對 6G 的推進工作給出了正面的評估。
+
+接著關注資訊安全與數據中心設施。微軟官方在 PyPI 上的 Agent Framework Python 套件遭到駭客入侵，駭客發布了兩個惡意版本，旨在竊取開發者系統中的雲端憑證與其他敏感資訊。Coinbase 成功阻攔 4.7 million 美元加密貨幣轉帳，這些資金原本要流向利用 Elon Musk 的 AI 深度偽造技術來推銷假贈品的詐騙集團，當時該 Tesla 直播吸引了超過 500,000 名觀眾。
+
+在電信運營商與供應鏈方面。Nvidia 揭露其在 2026 年 7 月至 9 月期間，賣出超過一半在芬蘭廠商 Nokia 的持股，同時晶片製造商的主席 Harvey Jones 拒絕了 Jensen Huang 回歸擔任執行長的想法。AT&amp;T 宣布全面推出符合 GSMA SGP.32 規格的遠端 SIM 配置產品，旨在簡化企業全球物聯網部署的規模擴展。T-Mobile 通知 FCC，其正在收購 Bluewater Wireless 涵蓋 27 個州 435 個郡的 600MHz 頻譜執照，這在多數地區增加了大約 10MHz 的容量，並避免該頻譜落入 SpaceX 手中。Verizon Business 在其全球物聯網協調服務的第一筆商業交易中，為 Bosch Motorsport 提供物聯網連線與數據管理服務。Bosch Motorsport 正轉向 Verizon Business 來為全球賽道上的物聯網提供動力。
+
+電力與電網方面。太陽能產業協會與 Benchmark Mineral Intelligence 的報告指出，全美安裝的能源儲存容量已突破 200 GWh。能源分析公司 Orennia 的報告顯示，在期中選舉之後，預計高達 191 GW 的規劃數據中心容量面臨新的風險，風險主要集中在德州、俄亥俄州與喬治亞州。Ford 正式跨足電池業務，第一批 LFP 電池芯已在密西根州的 BlueOval Battery Park 工廠生產線上產出，並將運往肯塔基州為 Fathom 原型車提供動力。綠色和平組織利用 Huang 在柏林的發表會，聚焦於 Nvidia 在供應鏈排放與數據中心成長中扮演的角色，並預告未來將有更多抗議行動。
+
+油氣與油價方面。莫三比克部長會議批准 ExxonMobil 對 Rovuma LNG 計畫的修正後開發計畫。美國天然氣庫存以 3,810 billion cubic feet 結束注氣季。原油價格下跌，主因是交易員將焦點放在供應增加、美元走強以及對風險的需求減弱。
+
+最後是貴金屬與關鍵礦產。隨著 AI 與關稅交易的去槓桿化，銅價崩跌，一個月內讓頂尖生產商蒸發了 186 billion 美元。銅價正邁向兩年來最長的一週連跌紀錄，而背景是 Nvidia 在星期二晚間公布的營收超越華爾街預期約 6.7 billion 美元。美國稀土法規將在新年變得更加嚴格，華盛頓即將到來的限制暴露了國內加工領域的缺口，並升高了對國防供應商的壓力。
+
+接下來看價格動向，以下都是過去 21 個交易日的收盤價變化。大盤方面，SPY 下跌 5.5%，QQQ 下跌 9.1%；AI 與半導體方面，SMH 下跌 17.5%；資安與數據中心方面，CIBR 下跌 6.9%；貴金屬與關鍵礦產方面，GLD 下跌 10.0%，COPX 下跌 21.6%。指數型基金中，SPY、GLD 與 COPX 今天收盤創下近 21 個交易日的新低。觀察列表中，Nvidia、Sandisk、AST SpaceMobile、Exxon 與 Chevron 等 8 檔，完整名單見文字版 的收盤價創下近 21 個交易日新低。以上由程式依收盤價計算，僅供參考。
+
+市場波動來自技術面、消息面、機構資金等多重因素，請勿單憑新聞買賣股票，投資需謹慎。
+
+無論走勢如何，請保持規律的作息與適度的運動，長期的心態比短線的漲跌更重要。
+
+最後交代一下這一集的製作。新聞整理方面，Google 的 Gemini 模型負責大盤與總體經濟、資訊安全與數據中心設施、電力與電網；OpenAI 開源的 gpt-oss 模型（在 Groq 平台上執行）負責AI 與半導體、電信運營商與供應鏈、貴金屬與關鍵礦產；Meta 的 Llama 模型（在 Cloudflare 平台上執行）負責太空與下一代通訊、油氣與油價；全文由Google 的 Gemini 模型統稿；成稿再由OpenAI 開源的 gpt-oss 模型（在 Groq 平台上執行）對照新聞審查；另外由程式逐句核對數字；語音由微軟 Edge 的合成語音朗讀。內容僅供參考，如有疏漏，歡迎指正。
+
+祝各位身體健康、投資順利，闔家平安，神愛世人，耶穌愛您，我們明天見！
+
+本內容由 AI 協助整理並以合成語音播出，僅供參考，不構成投資建議。</description>
+      <content:encoded><![CDATA[<p>今天的焦點涵蓋大盤動態、科技與半導體產業發展、通訊與基礎設施、能源市場以及關鍵礦產的最新變化。</p><p>本集統計：共 32 則新聞（共通 5、AI 與半導體 6、太空與下一代通訊 3、資安與數據中心基礎設施 3、電信 5、電力與電網 4、油氣 3、貴金屬與關鍵礦產 3）。</p><p>全文與新聞來源：<a href="https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/t/zh-TW/20261118.html">https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/t/zh-TW/20261118.html</a></p><p>首先來看大盤與總體經濟的動態。Anthropic 將 IPO 發行價定在每股 83 美元，高於預期區間，該股票預定於星期四在 Nasdaq 開始交易，代號為 ANT。專家指出，微軟、JPMorgan 等企業近期發生的美國技術故障，可能是因為各界急於修復人工智慧所發現的軟體錯誤所導致。新創企業 Ramp 正在進行募資，估值達到 70 billion 美元。參議院的兩黨議員呼籲白宮建立國家級的努力，以更強健地應對人工智慧帶來的網路威脅。美國股市多數收低，主因是 Nvidia 的財報未能平撫市場緊張情緒。</p><p>接下來看 AI 與半導體領域。Nvidia 臨時執行長 Colette Kress 在 Jensen Huang 離職後的首次全體員工大會上，向員工喊話並提供加薪。微軟在 Ignite 大會上發表新的 AI 模型後，Mizuho 分析師重申對 MSFT 的買進評等，目標價設定在 625 美元，背景是來自 OpenAI 與 Anthropic 的激烈競爭。Micron 有三個催化劑，準備推動這家記憶體晶片製造商超越 Nvidia 財報的表現。在 Nvidia 引領的 AI 熱潮面臨現實考驗之際，Apple 股票展現出韌性，而同為 AI 概念股的 Nvidia 與 Meta 則相對走弱。Nvidia 交出強勁的表現，但在市場對該公司的嚴格審視與總體經濟因素下，仍存在不少疑問。Marc Hijink 討論了 ASML 以夥伴為導向的文化、在 EUV 的主導地位，以及地緣政治壓力如何重塑晶片製造。</p><p>在太空與下一代通訊方面。Nvidia 售出超過一半的 Nokia 持股，分析師認為這是獲利了結，並非撤出 AI-RAN 領域。VodafoneThree 將測試 Nokia 與 Nvidia 的 AI-RAN 平台。Verizon CTO Yago Tenorio 對 6G 的推進工作給出了正面的評估。</p><p>接著關注資訊安全與數據中心設施。微軟官方在 PyPI 上的 Agent Framework Python 套件遭到駭客入侵，駭客發布了兩個惡意版本，旨在竊取開發者系統中的雲端憑證與其他敏感資訊。Coinbase 成功阻攔 4.7 million 美元加密貨幣轉帳，這些資金原本要流向利用 Elon Musk 的 AI 深度偽造技術來推銷假贈品的詐騙集團，當時該 Tesla 直播吸引了超過 500,000 名觀眾。</p><p>在電信運營商與供應鏈方面。Nvidia 揭露其在 2026 年 7 月至 9 月期間，賣出超過一半在芬蘭廠商 Nokia 的持股，同時晶片製造商的主席 Harvey Jones 拒絕了 Jensen Huang 回歸擔任執行長的想法。AT&amp;T 宣布全面推出符合 GSMA SGP.32 規格的遠端 SIM 配置產品，旨在簡化企業全球物聯網部署的規模擴展。T-Mobile 通知 FCC，其正在收購 Bluewater Wireless 涵蓋 27 個州 435 個郡的 600MHz 頻譜執照，這在多數地區增加了大約 10MHz 的容量，並避免該頻譜落入 SpaceX 手中。Verizon Business 在其全球物聯網協調服務的第一筆商業交易中，為 Bosch Motorsport 提供物聯網連線與數據管理服務。Bosch Motorsport 正轉向 Verizon Business 來為全球賽道上的物聯網提供動力。</p><p>電力與電網方面。太陽能產業協會與 Benchmark Mineral Intelligence 的報告指出，全美安裝的能源儲存容量已突破 200 GWh。能源分析公司 Orennia 的報告顯示，在期中選舉之後，預計高達 191 GW 的規劃數據中心容量面臨新的風險，風險主要集中在德州、俄亥俄州與喬治亞州。Ford 正式跨足電池業務，第一批 LFP 電池芯已在密西根州的 BlueOval Battery Park 工廠生產線上產出，並將運往肯塔基州為 Fathom 原型車提供動力。綠色和平組織利用 Huang 在柏林的發表會，聚焦於 Nvidia 在供應鏈排放與數據中心成長中扮演的角色，並預告未來將有更多抗議行動。</p><p>油氣與油價方面。莫三比克部長會議批准 ExxonMobil 對 Rovuma LNG 計畫的修正後開發計畫。美國天然氣庫存以 3,810 billion cubic feet 結束注氣季。原油價格下跌，主因是交易員將焦點放在供應增加、美元走強以及對風險的需求減弱。</p><p>最後是貴金屬與關鍵礦產。隨著 AI 與關稅交易的去槓桿化，銅價崩跌，一個月內讓頂尖生產商蒸發了 186 billion 美元。銅價正邁向兩年來最長的一週連跌紀錄，而背景是 Nvidia 在星期二晚間公布的營收超越華爾街預期約 6.7 billion 美元。美國稀土法規將在新年變得更加嚴格，華盛頓即將到來的限制暴露了國內加工領域的缺口，並升高了對國防供應商的壓力。</p><p>接下來看價格動向，以下都是過去 21 個交易日的收盤價變化。大盤方面，SPY 下跌 5.5%，QQQ 下跌 9.1%；AI 與半導體方面，SMH 下跌 17.5%；資安與數據中心方面，CIBR 下跌 6.9%；貴金屬與關鍵礦產方面，GLD 下跌 10.0%，COPX 下跌 21.6%。指數型基金中，SPY、GLD 與 COPX 今天收盤創下近 21 個交易日的新低。觀察列表中，Nvidia、Sandisk、AST SpaceMobile、Exxon 與 Chevron 等 8 檔，完整名單見文字版 的收盤價創下近 21 個交易日新低。以上由程式依收盤價計算，僅供參考。</p><p>市場波動來自技術面、消息面、機構資金等多重因素，請勿單憑新聞買賣股票，投資需謹慎。</p><p>無論走勢如何，請保持規律的作息與適度的運動，長期的心態比短線的漲跌更重要。</p><p>最後交代一下這一集的製作。新聞整理方面，Google 的 Gemini 模型負責大盤與總體經濟、資訊安全與數據中心設施、電力與電網；OpenAI 開源的 gpt-oss 模型（在 Groq 平台上執行）負責AI 與半導體、電信運營商與供應鏈、貴金屬與關鍵礦產；Meta 的 Llama 模型（在 Cloudflare 平台上執行）負責太空與下一代通訊、油氣與油價；全文由Google 的 Gemini 模型統稿；成稿再由OpenAI 開源的 gpt-oss 模型（在 Groq 平台上執行）對照新聞審查；另外由程式逐句核對數字；語音由微軟 Edge 的合成語音朗讀。內容僅供參考，如有疏漏，歡迎指正。</p><p>祝各位身體健康、投資順利，闔家平安，神愛世人，耶穌愛您，我們明天見！</p><p><em>本內容由 AI 協助整理並以合成語音播出，僅供參考，不構成投資建議。</em></p>]]></content:encoded>
+      <pubDate>Wed, 18 Nov 2026 22:00:00 +0000</pubDate>
+      <guid>https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/ep_20261118.mp3</guid>
+      <enclosure url="https://pub-ac082a3f79b84343bc7b03ccadea7892.r2.dev/ep_20261118.mp3" length="2936448" type="audio/mpeg"/>
+      <itunes:explicit>no</itunes:explicit>
+    </item>
+    <item>
       <title>2026年11月17日 美股科技收盤簡報</title>
       <description>首先來看大盤與總體經濟的動態。NVIDIA Corp. 發布了強勁的第三季財報，營收達到 115.84 billion 美元，這也是創辦人兼 CEO Jensen Huang 上週卸任後的首次財報發布，隨後在盤後交易中，AI 雲端服務供應商的股價紛紛走高。Trump 的帳戶在 Nvidia 交易了高達 97.5 million 美元的股票，當時 Huang 獲得了白宮的接觸管道，隨後在被簡報 Jensen Huang 與涉嫌中國間諜的關係五天後，Trump 的帳戶賣出了高達 1 million 美元的 Nvidia 股票。
 
